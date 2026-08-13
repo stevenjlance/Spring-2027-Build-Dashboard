@@ -25,7 +25,8 @@ import argparse
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 # ---------------------------------------------------------------- config
 PROJECT_ID = "1217460412062915"
@@ -153,7 +154,9 @@ def main():
         tasks = fetch_from_asana(token)
 
     courses = build_courses(tasks)
-    stamp = datetime.now(timezone.utc).astimezone().strftime("%b %-d, %Y at %-I:%M %p")
+    # Always stamp in Eastern time with a label, regardless of the build server's
+    # clock (Netlify builds run in UTC).
+    stamp = datetime.now(ZoneInfo("America/New_York")).strftime("%b %-d, %Y at %-I:%M %p %Z")
     html = render(courses, stamp)
 
     here = os.path.dirname(os.path.abspath(__file__))

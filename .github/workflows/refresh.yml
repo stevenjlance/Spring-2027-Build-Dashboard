@@ -6,9 +6,9 @@ name: Refresh dashboard
 
 on:
   schedule:
-    # 8am, 12pm, 4pm America/New_York on weekdays.
-    # Cron is UTC; ET is UTC-4 (summer) / UTC-5 (winter), so times shift ~1h in winter.
-    - cron: "0 12,16,20 * * 1-5"
+    # Hourly during business hours (8am–6pm America/New_York) on weekdays.
+    # Cron is UTC; ET is UTC-4 (summer) / UTC-5 (winter), so the window shifts ~1h in winter.
+    - cron: "0 12-22 * * 1-5"
   workflow_dispatch: {}  # lets you trigger a refresh manually from the Actions tab
 
 jobs:
