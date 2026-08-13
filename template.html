@@ -1,0 +1,476 @@
+<title>Course Build Tracker — Spring 2027</title>
+<style>
+  :root {
+    --ground: #f4f6f9;
+    --surface: #ffffff;
+    --surface-2: #fafbfc;
+    --ink: #1a1e27;
+    --muted: #5c6675;
+    --faint: #8b94a3;
+    --border: #e3e7ee;
+    --border-strong: #d3d9e3;
+    --accent: #2d5bd0;
+    --accent-soft: #e8eefb;
+
+    --plan: #64748b;   --plan-soft: #eef1f5;
+    --prod: #2d5bd0;   --prod-soft: #e8eefb;
+    --review: #c77d0a; --review-soft: #fbf0dc;
+    --live: #12894e;   --live-soft: #e0f2e8;
+    --overdue: #c0392b;
+
+    --track-empty: #e7ebf1;
+    --shadow: 0 1px 2px rgba(20,30,50,.04), 0 4px 16px rgba(20,30,50,.06);
+    --radius: 12px;
+    --mono: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  :root:not([data-theme="light"]) {
+    @media (prefers-color-scheme: dark) {
+      --ground: #10131a;
+      --surface: #171b24;
+      --surface-2: #1c212c;
+      --ink: #e8ebf1;
+      --muted: #9aa4b4;
+      --faint: #6b7686;
+      --border: #262c38;
+      --border-strong: #333b4a;
+      --accent: #6b93f0;
+      --accent-soft: #1b2740;
+      --plan: #8b97a8;   --plan-soft: #22272f;
+      --prod: #6b93f0;   --prod-soft: #1b2740;
+      --review: #e0a03e; --review-soft: #33280f;
+      --live: #45c485;   --live-soft: #12251b;
+      --overdue: #ef6a5c;
+      --track-empty: #2a313d;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.28);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #10131a;
+    --surface: #171b24;
+    --surface-2: #1c212c;
+    --ink: #e8ebf1;
+    --muted: #9aa4b4;
+    --faint: #6b7686;
+    --border: #262c38;
+    --border-strong: #333b4a;
+    --accent: #6b93f0;
+    --accent-soft: #1b2740;
+    --plan: #8b97a8;   --plan-soft: #22272f;
+    --prod: #6b93f0;   --prod-soft: #1b2740;
+    --review: #e0a03e; --review-soft: #33280f;
+    --live: #45c485;   --live-soft: #12251b;
+    --overdue: #ef6a5c;
+    --track-empty: #2a313d;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.28);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 32px 24px 64px; }
+
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--live); background: var(--live-soft);
+    padding: 4px 10px; border-radius: 999px; margin-bottom: 14px;
+  }
+  .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--live); box-shadow: 0 0 0 3px color-mix(in srgb, var(--live) 22%, transparent); }
+  h1 { font-size: 27px; letter-spacing: -.02em; margin: 0 0 6px; text-wrap: balance; font-weight: 700; }
+  .lede { color: var(--muted); margin: 0; max-width: 62ch; }
+
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 28px 0 18px; }
+  .kpi {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px 18px; box-shadow: var(--shadow);
+  }
+  .kpi .label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); font-weight: 600; }
+  .kpi .val { font-size: 30px; font-weight: 700; letter-spacing: -.02em; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .kpi .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .kpi.is-live .val { color: var(--live); }
+  .kpi.is-review .val { color: var(--review); }
+
+  .funnel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px 18px 18px; box-shadow: var(--shadow); margin-bottom: 22px;
+  }
+  .funnel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--faint); margin: 0 0 14px; font-weight: 700; }
+  .funnel-row { display: grid; grid-template-columns: repeat(9, 1fr); gap: 8px; }
+  .fcell { text-align: center; cursor: pointer; border: none; background: none; font: inherit; padding: 0; }
+  .fcell .bar {
+    height: 46px; border-radius: 8px 8px 4px 4px; display: flex; align-items: flex-end; justify-content: center;
+    background: var(--track-empty); position: relative; overflow: hidden; transition: transform .12s;
+  }
+  .fcell:hover .bar { transform: translateY(-2px); }
+  .fcell .fill { position: absolute; inset: 0; top: auto; width: 100%; border-radius: 8px 8px 4px 4px; }
+  .fcell .cnt { position: relative; font-size: 15px; font-weight: 700; padding-bottom: 4px; font-variant-numeric: tabular-nums; }
+  .fcell .cnt.on-fill { color: #fff; }
+  .fcell .nm { font-size: 10.5px; color: var(--muted); margin-top: 6px; line-height: 1.25; letter-spacing: .01em; }
+  .fcell.active .bar { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+  .search { flex: 1 1 220px; min-width: 180px; position: relative; }
+  .search input {
+    width: 100%; padding: 9px 12px 9px 34px; border: 1px solid var(--border-strong); border-radius: 9px;
+    background: var(--surface); color: var(--ink); font: inherit; font-size: 13.5px;
+  }
+  .search svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--faint); }
+  .search input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  select {
+    padding: 9px 30px 9px 12px; border: 1px solid var(--border-strong); border-radius: 9px;
+    background: var(--surface) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' stroke='%238b94a3' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>") no-repeat right 10px center;
+    color: var(--ink); font: inherit; font-size: 13.5px; appearance: none; cursor: pointer;
+  }
+  select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .reset {
+    padding: 9px 14px; border: 1px solid var(--border-strong); border-radius: 9px; background: var(--surface);
+    color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; font-weight: 500;
+  }
+  .reset:hover { color: var(--ink); border-color: var(--faint); }
+
+  .tablecard { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 880px; }
+  thead th {
+    text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--faint);
+    font-weight: 700; padding: 13px 16px; border-bottom: 1px solid var(--border); background: var(--surface-2);
+    white-space: nowrap; cursor: pointer; user-select: none;
+  }
+  thead th.nosort { cursor: default; }
+  thead th .arrow { opacity: 0; margin-left: 4px; }
+  thead th.sorted .arrow { opacity: 1; }
+  tbody tr.course-row { border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s; }
+  tbody tr.course-row:hover { background: var(--surface-2); }
+  td { padding: 13px 16px; vertical-align: middle; }
+  .cname { font-weight: 600; font-size: 14px; letter-spacing: -.01em; }
+  .code { font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-top: 2px; letter-spacing: .02em; }
+  .type-tag { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .assignee { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .avatar { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: #fff; flex: none; }
+  .avatar.unassigned { background: var(--track-empty); color: var(--faint); }
+  .assignee .nm { font-size: 13px; }
+
+  .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+  .pill .pdot { width: 7px; height: 7px; border-radius: 50%; }
+  .ph-plan   { background: var(--plan-soft);   color: var(--plan); }
+  .ph-plan .pdot { background: var(--plan); }
+  .ph-prod   { background: var(--prod-soft);   color: var(--prod); }
+  .ph-prod .pdot { background: var(--prod); }
+  .ph-review { background: var(--review-soft); color: var(--review); }
+  .ph-review .pdot { background: var(--review); }
+  .ph-live   { background: var(--live-soft);   color: var(--live); }
+  .ph-live .pdot { background: var(--live); }
+
+  .track { display: flex; gap: 3px; align-items: center; }
+  .seg { width: 15px; height: 9px; border-radius: 2px; background: var(--track-empty); }
+  .seg.done.g-plan   { background: var(--plan); }
+  .seg.done.g-prod   { background: var(--prod); }
+  .seg.done.g-review { background: var(--review); }
+  .seg.done.g-live   { background: var(--live); }
+  .seg.current { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--accent); }
+  .track-meta { font-size: 11.5px; color: var(--muted); margin-top: 5px; font-variant-numeric: tabular-nums; }
+
+  .due { font-size: 13px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .due.overdue { color: var(--overdue); font-weight: 600; }
+  .due .flag { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; display: block; }
+  .due.none { color: var(--faint); }
+
+  .chev { color: var(--faint); transition: transform .15s; }
+  tr.expanded .chev { transform: rotate(90deg); }
+
+  tr.detail-row > td { padding: 0; background: var(--surface-2); border-bottom: 1px solid var(--border); }
+  .detail-inner { padding: 6px 16px 18px 52px; display: none; }
+  tr.detail-row.open .detail-inner { display: block; }
+  .steps { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; max-width: 440px; }
+  .step { display: flex; align-items: center; gap: 9px; padding: 8px 0; font-size: 13px; border-bottom: 1px solid var(--border); }
+  .step:last-child { border-bottom: none; }
+  .step .ic { width: 18px; height: 18px; border-radius: 50%; flex: none; display: grid; place-items: center; }
+  .step .ic.done { background: var(--live); }
+  .step .ic.curr { background: var(--accent); }
+  .step .ic.todo { border: 1.6px solid var(--border-strong); }
+  .step .sname { color: var(--ink); }
+  .step.is-todo .sname { color: var(--faint); }
+  .step .stag { font-size: 10px; color: var(--faint); text-transform: uppercase; letter-spacing: .04em; margin-left: auto; }
+
+  .empty { padding: 48px; text-align: center; color: var(--muted); display: none; }
+
+  footer { margin-top: 22px; color: var(--faint); font-size: 12px; line-height: 1.7; }
+  footer b { color: var(--muted); font-weight: 600; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .count-note { font-size: 12.5px; color: var(--muted); margin: 0 0 10px; font-variant-numeric: tabular-nums; }
+
+  @media (max-width: 720px) {
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .funnel-row { gap: 4px; }
+    .fcell .nm { font-size: 9px; }
+  }
+</style>
+
+<div class="wrap">
+  <div>
+    <span class="eyebrow"><span class="dot"></span>Live from Asana · updated __GENERATED_AT__</span>
+    <h1>Course Build Tracker — Spring 2027</h1>
+    <p class="lede">Where each course sits in the 8-stage build pipeline. A course advances one stage at a time and goes <b>Live</b> once all eight tasks are complete.</p>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="funnel">
+    <h2>Courses by current stage — click to filter</h2>
+    <div class="funnel-row" id="funnel"></div>
+  </div>
+
+  <div class="controls">
+    <label class="search">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <input id="q" type="text" placeholder="Search course or code…" aria-label="Search courses">
+    </label>
+    <select id="f-stage" aria-label="Filter by stage"></select>
+    <select id="f-type" aria-label="Filter by type"></select>
+    <select id="f-assignee" aria-label="Filter by lead"></select>
+    <select id="f-wave" aria-label="Filter by wave"></select>
+    <button class="reset" id="reset" type="button">Reset</button>
+  </div>
+
+  <p class="count-note" id="countNote"></p>
+
+  <div class="tablecard">
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th class="nosort" style="width:28px"></th>
+            <th data-sort="name">Course <span class="arrow">↓</span></th>
+            <th data-sort="type">Type <span class="arrow">↓</span></th>
+            <th data-sort="lead">Lead <span class="arrow">↓</span></th>
+            <th data-sort="progress" class="sorted">Progress <span class="arrow">↓</span></th>
+            <th data-sort="stage">Current Stage <span class="arrow">↓</span></th>
+            <th data-sort="wave">Wave <span class="arrow">↓</span></th>
+            <th data-sort="due">Stage Due <span class="arrow">↓</span></th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="empty">No courses match these filters.</div>
+  </div>
+
+  <footer>
+    <div class="legend">
+      <span><i style="background:var(--plan)"></i>Planning</span>
+      <span><i style="background:var(--prod)"></i>Production (Acts I–IV)</span>
+      <span><i style="background:var(--review)"></i>Review</span>
+      <span><i style="background:var(--live)"></i>Live</span>
+    </div>
+    <p style="margin-top:12px"><b>How stage is read:</b> the current stage is the next unfinished task. If <b>Act I</b> is done, the course is in <b>Act II</b>; if <b>Act IV</b> is done, it's in <b>Peer Review</b>. Pipeline order: Course Plan → Global Resource &amp; Shell Setup → Act I → Act II → Act III → Act IV → Peer Review → Baselining.<br>
+    Pulled live from the <b>Spring 2027 Course Builds</b> Asana board. Curriculum-Committee items are excluded. Lead and Stage Due reflect the task for the current stage.</p>
+  </footer>
+</div>
+
+<script>
+  const STAGES = [
+    { name: "Course Plan",                     short: "Course Plan", group: "plan" },
+    { name: "Global Resource & Shell Setup",   short: "Shell Setup", group: "plan" },
+    { name: "Act I",                           short: "Act I",       group: "prod" },
+    { name: "Act II",                          short: "Act II",      group: "prod" },
+    { name: "Act III",                         short: "Act III",     group: "prod" },
+    { name: "Act IV",                          short: "Act IV",      group: "prod" },
+    { name: "Peer Review",                     short: "Peer Review", group: "review" },
+    { name: "Baselining",                      short: "Baselining",  group: "review" },
+  ];
+  const LIVE = { name: "Live", short: "Live", group: "live" };
+
+  // Injected by generate_dashboard.py — one entry per course, `stages` = 8 booleans.
+  const COURSES = /*__COURSES__*/[];
+
+  const AV_COLORS = ["#2d5bd0","#12894e","#c77d0a","#8e44ad","#0e8a8a","#c0392b","#d1477a","#3a6ea5"];
+  const avatarColor = (n) => AV_COLORS[[...n].reduce((a,c)=>a+c.charCodeAt(0),0) % AV_COLORS.length];
+  const initials = (n) => n.split(" ").filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase();
+
+  const doneCount = (c) => c.stages.filter(Boolean).length;
+  const curIndex = (c) => { const i = c.stages.indexOf(false); return i === -1 ? 8 : i; };
+  const currentStage = (c) => curIndex(c) >= 8 ? LIVE : STAGES[curIndex(c)];
+  function fmtDate(d) {
+    if (!d) return null;
+    const dt = new Date(d + "T00:00:00");
+    return dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  }
+  const TODAY = new Date(new Date().toISOString().slice(0,10) + "T00:00:00");
+  const isOverdue = (c) => curIndex(c) < 8 && c.due && new Date(c.due+"T00:00:00") < TODAY;
+
+  const state = { q:"", stage:"", type:"", assignee:"", wave:"", sort:"progress", dir:-1 };
+
+  function opt(v, label) { const o = document.createElement("option"); o.value = v; o.textContent = label; return o; }
+  const stageSel = document.getElementById("f-stage");
+  stageSel.appendChild(opt("", "All stages"));
+  [...STAGES.map(s=>s.name), "Live"].forEach(s => stageSel.appendChild(opt(s, s)));
+  const typeSel = document.getElementById("f-type");
+  typeSel.appendChild(opt("", "All types"));
+  [...new Set(COURSES.map(c=>c.type))].sort().forEach(t => typeSel.appendChild(opt(t, t)));
+  const asgSel = document.getElementById("f-assignee");
+  asgSel.appendChild(opt("", "All leads"));
+  [...new Set(COURSES.map(c=>c.lead))].sort().forEach(a => asgSel.appendChild(opt(a, a)));
+  const waveSel = document.getElementById("f-wave");
+  waveSel.appendChild(opt("", "All waves"));
+  [...new Set(COURSES.map(c=>String(c.wave)))].sort().forEach(w => waveSel.appendChild(opt(w, "Wave " + w)));
+
+  function renderKPIs() {
+    const total = COURSES.length;
+    const live = COURSES.filter(c => doneCount(c) >= 8).length;
+    const inReview = COURSES.filter(c => { const i = curIndex(c); return i >= 6 && i < 8; }).length;
+    const notStarted = COURSES.filter(c => doneCount(c) === 0).length;
+    const kpis = [
+      { label: "Courses", val: total, sub: "in the Spring 2027 build" },
+      { label: "Live", val: live, sub: "all 8 tasks complete", cls: "is-live" },
+      { label: "In review", val: inReview, sub: "Peer Review or Baselining", cls: "is-review" },
+      { label: "Not started", val: notStarted, sub: "still at Course Plan" },
+    ];
+    document.getElementById("kpis").innerHTML = kpis.map(k =>
+      `<div class="kpi ${k.cls||""}"><div class="label">${k.label}</div><div class="val">${k.val}</div><div class="sub">${k.sub}</div></div>`
+    ).join("");
+  }
+
+  function renderFunnel() {
+    const buckets = STAGES.map((s,i) => ({ label: s.short, name: s.name, group: s.group, count: COURSES.filter(c=>curIndex(c)===i).length }));
+    buckets.push({ label: "Live", name: "Live", group: "live", count: COURSES.filter(c=>curIndex(c)>=8).length });
+    const max = Math.max(1, ...buckets.map(b=>b.count));
+    document.getElementById("funnel").innerHTML = buckets.map(b => {
+      const h = b.count === 0 ? 0 : Math.round(20 + (b.count/max)*80);
+      const active = state.stage === b.name;
+      return `<button class="fcell ${active?"active":""}" data-stage="${b.name}" type="button" aria-label="${b.count} in ${b.name}">
+        <div class="bar"><div class="fill" style="height:${h}%;background:var(--${b.group})"></div><span class="cnt ${b.count>0?"on-fill":""}">${b.count}</span></div>
+        <div class="nm">${b.label}</div></button>`;
+    }).join("");
+    document.querySelectorAll(".fcell").forEach(el => el.addEventListener("click", () => {
+      const s = el.dataset.stage;
+      state.stage = state.stage === s ? "" : s;
+      stageSel.value = state.stage;
+      render();
+    }));
+  }
+
+  function trackerHTML(c) {
+    const cur = curIndex(c);
+    let segs = "";
+    for (let i=0;i<8;i++) {
+      const g = STAGES[i].group;
+      const cls = c.stages[i] ? `done g-${g}` : (i === cur ? "current" : "");
+      segs += `<div class="seg ${cls}" title="${STAGES[i].name}${c.stages[i]?' ✓':''}"></div>`;
+    }
+    const dc = doneCount(c);
+    return `<div class="track">${segs}</div><div class="track-meta">${dc}/8 tasks · ${Math.round(dc/8*100)}%</div>`;
+  }
+
+  function stepsHTML(c) {
+    const cur = curIndex(c);
+    return STAGES.map((s,i) => {
+      const st = c.stages[i] ? "done" : (i === cur ? "curr" : "todo");
+      const tag = c.stages[i] ? "Done" : (i === cur ? "Current" : "");
+      const ic = st === "done"
+        ? `<span class="ic done"><svg width="10" height="10" viewBox="0 0 12 12"><path d="M2.5 6.2l2.2 2.2 4.8-5" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`
+        : st === "curr"
+        ? `<span class="ic curr"><svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="#fff"/></svg></span>`
+        : `<span class="ic todo"></span>`;
+      return `<div class="step ${st==="todo"?"is-todo":""}">${ic}<span class="sname">${i+1}. ${s.name}</span><span class="stag">${tag}</span></div>`;
+    }).join("");
+  }
+
+  function filtered() {
+    let list = COURSES.filter(c => {
+      const cs = currentStage(c).name;
+      if (state.q) { const q = state.q.toLowerCase(); if (!c.name.toLowerCase().includes(q) && !c.code.toLowerCase().includes(q)) return false; }
+      if (state.stage && cs !== state.stage) return false;
+      if (state.type && c.type !== state.type) return false;
+      if (state.assignee && c.lead !== state.assignee) return false;
+      if (state.wave && String(c.wave) !== String(state.wave)) return false;
+      return true;
+    });
+    const key = state.sort;
+    list.sort((a,b) => {
+      let av, bv;
+      if (key === "progress" || key === "stage") { av=doneCount(a); bv=doneCount(b); }
+      else if (key === "due") { av=a.due?new Date(a.due):new Date("2100-01-01"); bv=b.due?new Date(b.due):new Date("2100-01-01"); }
+      else if (key === "wave") { av=+a.wave||0; bv=+b.wave||0; }
+      else if (key === "lead") { av=(a.lead||"").toLowerCase(); bv=(b.lead||"").toLowerCase(); }
+      else { av=(a[key]||"").toString().toLowerCase(); bv=(b[key]||"").toString().toLowerCase(); }
+      if (av<bv) return -1*state.dir; if (av>bv) return 1*state.dir; return 0;
+    });
+    return list;
+  }
+
+  function render() {
+    renderFunnel();
+    const list = filtered();
+    const tbody = document.getElementById("rows");
+    tbody.innerHTML = "";
+    list.forEach(c => {
+      const cs = currentStage(c);
+      const overdue = isOverdue(c);
+      const live = doneCount(c) >= 8;
+      const tr = document.createElement("tr");
+      tr.className = "course-row";
+      const dueHTML = live
+        ? `<span class="due none">—</span>`
+        : c.due
+          ? `<span class="due ${overdue?"overdue":""}">${fmtDate(c.due)}${overdue?'<span class="flag">Overdue</span>':''}</span>`
+          : `<span class="due none">Not set</span>`;
+      const unassigned = c.lead === "Unassigned";
+      tr.innerHTML = `
+        <td><svg class="chev" width="12" height="12" viewBox="0 0 12 12"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></td>
+        <td><div class="cname">${(c.name.includes(":")? c.name.slice(c.name.indexOf(":")+1).trim() : c.name)}</div><div class="code">${c.code}</div></td>
+        <td><span class="type-tag">${c.type}</span></td>
+        <td><div class="assignee"><span class="avatar ${unassigned?"unassigned":""}" style="${unassigned?"":`background:${avatarColor(c.lead)}`}">${unassigned?"—":initials(c.lead)}</span><span class="nm">${c.lead}</span></div></td>
+        <td>${trackerHTML(c)}</td>
+        <td><span class="pill ph-${cs.group}"><span class="pdot"></span>${cs.name}</span></td>
+        <td style="font-variant-numeric:tabular-nums">${c.wave}</td>
+        <td>${dueHTML}</td>`;
+      const detail = document.createElement("tr");
+      detail.className = "detail-row";
+      detail.innerHTML = `<td colspan="8"><div class="detail-inner"><div class="steps">${stepsHTML(c)}</div></div></td>`;
+      tr.addEventListener("click", () => {
+        const open = detail.classList.toggle("open");
+        tr.classList.toggle("expanded", open);
+      });
+      tbody.appendChild(tr);
+      tbody.appendChild(detail);
+    });
+    document.getElementById("empty").style.display = list.length ? "none" : "block";
+    document.getElementById("countNote").textContent =
+      `Showing ${list.length} of ${COURSES.length} courses` +
+      (state.stage||state.type||state.assignee||state.wave||state.q ? " · filtered" : "");
+    document.querySelectorAll("thead th[data-sort]").forEach(th => {
+      const on = th.dataset.sort === state.sort;
+      th.classList.toggle("sorted", on);
+      th.querySelector(".arrow").textContent = state.dir === 1 ? "↑" : "↓";
+    });
+  }
+
+  document.getElementById("q").addEventListener("input", e => { state.q = e.target.value; render(); });
+  stageSel.addEventListener("change", e => { state.stage = e.target.value; render(); });
+  typeSel.addEventListener("change", e => { state.type = e.target.value; render(); });
+  asgSel.addEventListener("change", e => { state.assignee = e.target.value; render(); });
+  waveSel.addEventListener("change", e => { state.wave = e.target.value; render(); });
+  document.getElementById("reset").addEventListener("click", () => {
+    Object.assign(state, { q:"", stage:"", type:"", assignee:"", wave:"" });
+    document.getElementById("q").value=""; stageSel.value=""; typeSel.value=""; asgSel.value=""; waveSel.value="";
+    render();
+  });
+  document.querySelectorAll("thead th[data-sort]").forEach(th => th.addEventListener("click", () => {
+    const k = th.dataset.sort;
+    if (state.sort === k) state.dir *= -1; else { state.sort = k; state.dir = (k==="progress")? -1 : 1; }
+    render();
+  }));
+
+  renderKPIs();
+  render();
+</script>

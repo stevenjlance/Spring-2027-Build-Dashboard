@@ -1,0 +1,14 @@
+# Build output (Netlify regenerates this on every deploy)
+public/
+course-dashboard.html
+
+# Local Asana data dumps — may contain internal board data, keep out of git
+tasks*.json
+
+# Python
+__pycache__/
+*.pyc
+
+# Netlify / macOS
+.netlify/
+.DS_Store

@@ -1,0 +1,24 @@
+name: Refresh dashboard
+
+# Re-pulls the Asana board on a schedule by triggering a fresh Netlify build.
+# The Netlify build hook URL is stored as the repo secret NETLIFY_BUILD_HOOK
+# (Settings → Secrets and variables → Actions → New repository secret).
+
+on:
+  schedule:
+    # 8am, 12pm, 4pm America/New_York on weekdays.
+    # Cron is UTC; ET is UTC-4 (summer) / UTC-5 (winter), so times shift ~1h in winter.
+    - cron: "0 12,16,20 * * 1-5"
+  workflow_dispatch: {}  # lets you trigger a refresh manually from the Actions tab
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Netlify build
+        run: |
+          if [ -z "${{ secrets.NETLIFY_BUILD_HOOK }}" ]; then
+            echo "NETLIFY_BUILD_HOOK secret is not set — skipping."; exit 1
+          fi
+          curl -fsSL -X POST -d '{}' "${{ secrets.NETLIFY_BUILD_HOOK }}"
+          echo "Triggered Netlify rebuild."

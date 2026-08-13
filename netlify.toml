@@ -1,0 +1,11 @@
+# Netlify build configuration.
+# The build runs the Python generator, which fetches the Asana board using the
+# ASANA_TOKEN environment variable (set in Netlify → Site settings → Environment
+# variables) and writes the static dashboard to public/index.html.
+
+[build]
+  command = "python3 generate_dashboard.py --out public/index.html"
+  publish = "public"
+
+[build.environment]
+  PYTHON_VERSION = "3.11"
