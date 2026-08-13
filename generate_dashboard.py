@@ -130,13 +130,14 @@ def build_courses(tasks):
 
 
 # ---------------------------------------------------------------- render
-def render(courses, generated_at):
+def render(courses, generated_iso, generated_human):
     here = os.path.dirname(os.path.abspath(__file__))
     with open(os.path.join(here, "template.html")) as fh:
         tpl = fh.read()
     return (tpl
             .replace("/*__COURSES__*/[]", json.dumps(courses, ensure_ascii=False))
-            .replace("__GENERATED_AT__", generated_at))
+            .replace("__GENERATED_ISO__", generated_iso)
+            .replace("__GENERATED_HUMAN__", generated_human))
 
 
 def main():
@@ -154,10 +155,12 @@ def main():
         tasks = fetch_from_asana(token)
 
     courses = build_courses(tasks)
-    # Always stamp in Eastern time with a label, regardless of the build server's
-    # clock (Netlify builds run in UTC).
-    stamp = datetime.now(ZoneInfo("America/New_York")).strftime("%b %-d, %Y at %-I:%M %p %Z")
-    html = render(courses, stamp)
+    # Embed the build instant as a UTC ISO string; the page formats it in each
+    # viewer's own timezone. The Eastern string is a no-JS fallback.
+    now_utc = datetime.now(ZoneInfo("UTC"))
+    generated_iso = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+    generated_human = now_utc.astimezone(ZoneInfo("America/New_York")).strftime("%b %-d, %Y at %-I:%M %p %Z")
+    html = render(courses, generated_iso, generated_human)
 
     here = os.path.dirname(os.path.abspath(__file__))
     out = args.out or os.path.join(here, "course-dashboard.html")
@@ -168,7 +171,7 @@ def main():
 
     done = sum(1 for c in courses if all(c["stages"]))
     print(f"Wrote {out}")
-    print(f"{len(courses)} courses · {done} live · updated {stamp}")
+    print(f"{len(courses)} courses · {done} live · updated {generated_human}")
 
 
 if __name__ == "__main__":

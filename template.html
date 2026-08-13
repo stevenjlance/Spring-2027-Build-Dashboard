@@ -218,7 +218,7 @@
 
 <div class="wrap">
   <div>
-    <span class="eyebrow"><span class="dot"></span>Live from Asana · updated __GENERATED_AT__</span>
+    <span class="eyebrow"><span class="dot"></span>Live from Asana · updated <span id="updatedAt" data-utc="__GENERATED_ISO__">__GENERATED_HUMAN__</span></span>
     <h1>Course Build Tracker — Spring 2027</h1>
     <p class="lede">Where each course sits in the 8-stage build pipeline. A course advances one stage at a time and goes <b>Live</b> once all eight tasks are complete.</p>
   </div>
@@ -289,6 +289,19 @@
     { name: "Baselining",                      short: "Baselining",  group: "review" },
   ];
   const LIVE = { name: "Live", short: "Live", group: "live" };
+
+  // Show the build/refresh instant in the viewer's own timezone.
+  (function () {
+    const el = document.getElementById("updatedAt");
+    if (!el) return;
+    const d = new Date(el.getAttribute("data-utc"));
+    if (isNaN(d)) return;
+    el.textContent = d.toLocaleString(undefined, {
+      month: "short", day: "numeric", year: "numeric",
+      hour: "numeric", minute: "2-digit", timeZoneName: "short",
+    });
+    el.title = "Last pulled from Asana";
+  })();
 
   // Injected by generate_dashboard.py — one entry per course, `stages` = 8 booleans.
   const COURSES = /*__COURSES__*/[];
