@@ -16,9 +16,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Netlify build
+        env:
+          HOOK: ${{ secrets.NETLIFY_BUILD_HOOK }}
         run: |
-          if [ -z "${{ secrets.NETLIFY_BUILD_HOOK }}" ]; then
-            echo "NETLIFY_BUILD_HOOK secret is not set — skipping."; exit 1
+          if [ -z "$HOOK" ]; then
+            echo "NETLIFY_BUILD_HOOK secret is not set yet — nothing to trigger."
+            echo "Add it under repo Settings → Secrets and variables → Actions, then re-run."
+            exit 0   # skip cleanly during setup instead of failing
           fi
-          curl -fsSL -X POST -d '{}' "${{ secrets.NETLIFY_BUILD_HOOK }}"
+          curl -fsSL -X POST -d '{}' "$HOOK"
           echo "Triggered Netlify rebuild."
