@@ -103,7 +103,7 @@
     padding: 16px 18px 18px; box-shadow: var(--shadow); margin-bottom: 22px;
   }
   .funnel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--faint); margin: 0 0 14px; font-weight: 700; }
-  .funnel-row { display: grid; grid-template-columns: repeat(9, 1fr); gap: 8px; }
+  .funnel-row { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
   .fcell { text-align: center; cursor: pointer; border: none; background: none; font: inherit; padding: 0; }
   .fcell .bar {
     height: 46px; border-radius: 8px 8px 4px 4px; display: flex; align-items: flex-end; justify-content: center;
@@ -220,7 +220,7 @@
   <div>
     <span class="eyebrow"><span class="dot"></span>Live from Asana · updated <span id="updatedAt" data-utc="__GENERATED_ISO__">__GENERATED_HUMAN__</span></span>
     <h1>Course Build Tracker — Spring 2027</h1>
-    <p class="lede">Where each course sits in the 8-stage build pipeline. A course advances one stage at a time and goes <b>Live</b> once all eight tasks are complete.</p>
+    <p class="lede">Where each course sits in the build pipeline. A course advances one stage at a time and goes <b>Live</b> once every pipeline stage is complete.</p>
   </div>
 
   <div class="kpis" id="kpis"></div>
@@ -272,23 +272,30 @@
       <span><i style="background:var(--review)"></i>Review</span>
       <span><i style="background:var(--live)"></i>Live</span>
     </div>
-    <p style="margin-top:12px"><b>How stage is read:</b> the current stage is the next unfinished task. If <b>Act I</b> is done, the course is in <b>Act II</b>; if <b>Act IV</b> is done, it's in <b>Peer Review</b>. Pipeline order: Course Plan → Global Resource &amp; Shell Setup → Act I → Act II → Act III → Act IV → Peer Review → Baselining.<br>
+    <p style="margin-top:12px"><b>How stage is read:</b> the current stage is the next unfinished stage. If <b>Act I</b> is done, the course is in <b>Act II</b>; if <b>Act IV</b> is done, it's in <b>Peer Review</b>. Pipeline: Course Plan → Act I → Act II → Act III → Act IV → Peer Review → Baselining. <b>Global Resource &amp; Shell Setup</b> is tracked in each course's checklist but does <b>not</b> gate the stage — a course reads as Act I whether or not Shell Setup is checked.<br>
     Pulled live from the <b>Spring 2027 Course Builds</b> Asana board. Curriculum-Committee items are excluded. Lead and Stage Due reflect the task for the current stage.</p>
   </footer>
 </div>
 
 <script>
   const STAGES = [
-    { name: "Course Plan",                     short: "Course Plan", group: "plan" },
-    { name: "Global Resource & Shell Setup",   short: "Shell Setup", group: "plan" },
-    { name: "Act I",                           short: "Act I",       group: "prod" },
-    { name: "Act II",                          short: "Act II",      group: "prod" },
-    { name: "Act III",                         short: "Act III",     group: "prod" },
-    { name: "Act IV",                          short: "Act IV",      group: "prod" },
-    { name: "Peer Review",                     short: "Peer Review", group: "review" },
-    { name: "Baselining",                      short: "Baselining",  group: "review" },
+    { name: "Course Plan",                     short: "Course Plan", group: "plan",   gates: true  },
+    { name: "Global Resource & Shell Setup",   short: "Shell Setup", group: "plan",   gates: false },
+    { name: "Act I",                           short: "Act I",       group: "prod",   gates: true  },
+    { name: "Act II",                          short: "Act II",      group: "prod",   gates: true  },
+    { name: "Act III",                         short: "Act III",     group: "prod",   gates: true  },
+    { name: "Act IV",                          short: "Act IV",      group: "prod",   gates: true  },
+    { name: "Peer Review",                     short: "Peer Review", group: "review", gates: true  },
+    { name: "Baselining",                      short: "Baselining",  group: "review", gates: true  },
   ];
   const LIVE = { name: "Live", short: "Live", group: "live" };
+
+  // Shell Setup is tracked in the checklist but does NOT gate the pipeline. Current
+  // stage, progress, and the funnel are computed over the gating stages only, so a
+  // course with Course Plan done reads as "Act I" whether or not Shell Setup is checked.
+  const PIPELINE_IDX = STAGES.map((s, i) => (s.gates ? i : -1)).filter(i => i >= 0);
+  const PIPELINE = PIPELINE_IDX.map(i => STAGES[i]);
+  const PIPE_N = PIPELINE.length;
 
   // Show the build/refresh instant in the viewer's own timezone.
   (function () {
@@ -310,23 +317,24 @@
   const avatarColor = (n) => AV_COLORS[[...n].reduce((a,c)=>a+c.charCodeAt(0),0) % AV_COLORS.length];
   const initials = (n) => n.split(" ").filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase();
 
-  const doneCount = (c) => c.stages.filter(Boolean).length;
-  const curIndex = (c) => { const i = c.stages.indexOf(false); return i === -1 ? 8 : i; };
-  const currentStage = (c) => curIndex(c) >= 8 ? LIVE : STAGES[curIndex(c)];
+  const pipeDone = (c) => PIPELINE_IDX.map(i => c.stages[i]);     // 7 booleans, gating stages only
+  const doneCount = (c) => pipeDone(c).filter(Boolean).length;   // out of PIPE_N
+  const curIndex = (c) => { const i = pipeDone(c).indexOf(false); return i === -1 ? PIPE_N : i; };
+  const currentStage = (c) => curIndex(c) >= PIPE_N ? LIVE : PIPELINE[curIndex(c)];
   function fmtDate(d) {
     if (!d) return null;
     const dt = new Date(d + "T00:00:00");
     return dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   }
   const TODAY = new Date(new Date().toISOString().slice(0,10) + "T00:00:00");
-  const isOverdue = (c) => curIndex(c) < 8 && c.due && new Date(c.due+"T00:00:00") < TODAY;
+  const isOverdue = (c) => curIndex(c) < PIPE_N && c.due && new Date(c.due+"T00:00:00") < TODAY;
 
   const state = { q:"", stage:"", type:"", assignee:"", wave:"", sort:"progress", dir:-1 };
 
   function opt(v, label) { const o = document.createElement("option"); o.value = v; o.textContent = label; return o; }
   const stageSel = document.getElementById("f-stage");
   stageSel.appendChild(opt("", "All stages"));
-  [...STAGES.map(s=>s.name), "Live"].forEach(s => stageSel.appendChild(opt(s, s)));
+  [...PIPELINE.map(s=>s.name), "Live"].forEach(s => stageSel.appendChild(opt(s, s)));
   const typeSel = document.getElementById("f-type");
   typeSel.appendChild(opt("", "All types"));
   [...new Set(COURSES.map(c=>c.type))].sort().forEach(t => typeSel.appendChild(opt(t, t)));
@@ -339,12 +347,12 @@
 
   function renderKPIs() {
     const total = COURSES.length;
-    const live = COURSES.filter(c => doneCount(c) >= 8).length;
-    const inReview = COURSES.filter(c => { const i = curIndex(c); return i >= 6 && i < 8; }).length;
+    const live = COURSES.filter(c => doneCount(c) >= PIPE_N).length;
+    const inReview = COURSES.filter(c => { const i = curIndex(c); return i >= PIPE_N - 2 && i < PIPE_N; }).length;
     const notStarted = COURSES.filter(c => doneCount(c) === 0).length;
     const kpis = [
       { label: "Courses", val: total, sub: "in the Spring 2027 build" },
-      { label: "Live", val: live, sub: "all 8 tasks complete", cls: "is-live" },
+      { label: "Live", val: live, sub: "all stages complete", cls: "is-live" },
       { label: "In review", val: inReview, sub: "Peer Review or Baselining", cls: "is-review" },
       { label: "Not started", val: notStarted, sub: "still at Course Plan" },
     ];
@@ -354,8 +362,8 @@
   }
 
   function renderFunnel() {
-    const buckets = STAGES.map((s,i) => ({ label: s.short, name: s.name, group: s.group, count: COURSES.filter(c=>curIndex(c)===i).length }));
-    buckets.push({ label: "Live", name: "Live", group: "live", count: COURSES.filter(c=>curIndex(c)>=8).length });
+    const buckets = PIPELINE.map((s,i) => ({ label: s.short, name: s.name, group: s.group, count: COURSES.filter(c=>curIndex(c)===i).length }));
+    buckets.push({ label: "Live", name: "Live", group: "live", count: COURSES.filter(c=>curIndex(c)>=PIPE_N).length });
     const max = Math.max(1, ...buckets.map(b=>b.count));
     document.getElementById("funnel").innerHTML = buckets.map(b => {
       const h = b.count === 0 ? 0 : Math.round(20 + (b.count/max)*80);
@@ -374,21 +382,23 @@
 
   function trackerHTML(c) {
     const cur = curIndex(c);
+    const done = pipeDone(c);
     let segs = "";
-    for (let i=0;i<8;i++) {
-      const g = STAGES[i].group;
-      const cls = c.stages[i] ? `done g-${g}` : (i === cur ? "current" : "");
-      segs += `<div class="seg ${cls}" title="${STAGES[i].name}${c.stages[i]?' ✓':''}"></div>`;
+    for (let i=0;i<PIPE_N;i++) {
+      const g = PIPELINE[i].group;
+      const cls = done[i] ? `done g-${g}` : (i === cur ? "current" : "");
+      segs += `<div class="seg ${cls}" title="${PIPELINE[i].name}${done[i]?' ✓':''}"></div>`;
     }
     const dc = doneCount(c);
-    return `<div class="track">${segs}</div><div class="track-meta">${dc}/8 tasks · ${Math.round(dc/8*100)}%</div>`;
+    return `<div class="track">${segs}</div><div class="track-meta">${dc}/${PIPE_N} stages · ${Math.round(dc/PIPE_N*100)}%</div>`;
   }
 
   function stepsHTML(c) {
-    const cur = curIndex(c);
+    const curName = currentStage(c).name;
     return STAGES.map((s,i) => {
-      const st = c.stages[i] ? "done" : (i === cur ? "curr" : "todo");
-      const tag = c.stages[i] ? "Done" : (i === cur ? "Current" : "");
+      const isCurr = !c.stages[i] && s.gates && s.name === curName;
+      const st = c.stages[i] ? "done" : (isCurr ? "curr" : "todo");
+      const tag = c.stages[i] ? "Done" : (isCurr ? "Current" : (!s.gates ? "Setup · doesn't gate" : ""));
       const ic = st === "done"
         ? `<span class="ic done"><svg width="10" height="10" viewBox="0 0 12 12"><path d="M2.5 6.2l2.2 2.2 4.8-5" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`
         : st === "curr"
@@ -429,7 +439,7 @@
     list.forEach(c => {
       const cs = currentStage(c);
       const overdue = isOverdue(c);
-      const live = doneCount(c) >= 8;
+      const live = doneCount(c) >= PIPE_N;
       const tr = document.createElement("tr");
       tr.className = "course-row";
       const dueHTML = live

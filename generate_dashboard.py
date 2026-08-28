@@ -48,6 +48,11 @@ STAGE_ORDER = [
 ]
 STAGE_NAMES = [s[0] for s in STAGE_ORDER]
 
+# Shell Setup is tracked in the checklist but does NOT gate the pipeline: a course
+# with its Course Plan done shows as "Act I" whether or not Shell Setup is checked.
+SHELL_STAGE = "Global Resources and Other Shell Setup"
+PIPELINE_NAMES = [s for s in STAGE_NAMES if s != SHELL_STAGE]
+
 OPT_FIELDS = ",".join([
     "name", "completed", "due_on", "assignee.name",
     "custom_fields.name", "custom_fields.display_value",
@@ -103,13 +108,12 @@ def build_courses(tasks):
         for it in items:
             by_stage[cf(it, CF_STAGE) or cf(it, "Stage")] = it
 
+        # Full 8-item completion, for the checklist detail view.
         stages_done = [bool(by_stage.get(s, {}).get("completed")) for s in STAGE_NAMES]
-        try:
-            cur_idx = stages_done.index(False)
-        except ValueError:
-            cur_idx = None                 # all done -> Live
-
-        cur_task = by_stage.get(STAGE_NAMES[cur_idx]) if cur_idx is not None else None
+        # Current stage is derived from the PIPELINE only — Shell Setup does not gate.
+        cur_name = next((s for s in PIPELINE_NAMES
+                         if not by_stage.get(s, {}).get("completed")), None)
+        cur_task = by_stage.get(cur_name) if cur_name else None
         sample = items[0]
         lead = (cur_task or {}).get("assignee") or sample.get("assignee") or {}
         code = name.split(":")[0].strip() if ":" in name else name
@@ -169,7 +173,8 @@ def main():
     with open(out, "w") as fh:
         fh.write(html)
 
-    done = sum(1 for c in courses if all(c["stages"]))
+    pipe_idx = [i for i, s in enumerate(STAGE_NAMES) if s != SHELL_STAGE]
+    done = sum(1 for c in courses if all(c["stages"][i] for i in pipe_idx))
     print(f"Wrote {out}")
     print(f"{len(courses)} courses · {done} live · updated {generated_human}")
 
