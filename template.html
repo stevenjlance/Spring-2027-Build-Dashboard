@@ -272,7 +272,7 @@
       <span><i style="background:var(--review)"></i>Review</span>
       <span><i style="background:var(--live)"></i>Live</span>
     </div>
-    <p style="margin-top:12px"><b>How stage is read:</b> the current stage is the next unfinished stage. If <b>Act I</b> is done, the course is in <b>Act II</b>; if <b>Act IV</b> is done, it's in <b>Peer Review</b>. Pipeline: Course Plan → Act I → Act II → Act III → Act IV → Peer Review → Baselining. <b>Global Resource &amp; Shell Setup</b> is tracked in each course's checklist but does <b>not</b> gate the stage — a course reads as Act I whether or not Shell Setup is checked.<br>
+    <p style="margin-top:12px"><b>How stage is read:</b> the current stage is the next unfinished stage. If <b>Act I</b> is done, the course is in <b>Act II</b>; if <b>Act IV</b> is done, it's in <b>Peer Review</b>. Pipeline: Course Plan → Act I → Act II → Act III → Act IV → Peer Review → Baselining. <b>Global Resource &amp; Shell Setup</b> counts toward each course's progress but does <b>not</b> gate the stage — a course reads as Act I whether or not Shell Setup is checked.<br>
     Pulled live from the <b>Spring 2027 Course Builds</b> Asana board. Curriculum-Committee items are excluded. Lead and Stage Due reflect the task for the current stage.</p>
   </footer>
 </div>
@@ -318,7 +318,8 @@
   const initials = (n) => n.split(" ").filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase();
 
   const pipeDone = (c) => PIPELINE_IDX.map(i => c.stages[i]);     // 7 booleans, gating stages only
-  const doneCount = (c) => pipeDone(c).filter(Boolean).length;   // out of PIPE_N
+  const doneCount = (c) => pipeDone(c).filter(Boolean).length;   // gating stages done (drives stage/KPIs)
+  const progressCount = (c) => c.stages.filter(Boolean).length;  // all 8 tasks (drives progress bar)
   const curIndex = (c) => { const i = pipeDone(c).indexOf(false); return i === -1 ? PIPE_N : i; };
   const currentStage = (c) => curIndex(c) >= PIPE_N ? LIVE : PIPELINE[curIndex(c)];
   function fmtDate(d) {
@@ -381,16 +382,17 @@
   }
 
   function trackerHTML(c) {
-    const cur = curIndex(c);
-    const done = pipeDone(c);
+    const curName = currentStage(c).name;   // ring goes on the current gating stage
+    const total = STAGES.length;            // all 8 tasks count toward progress
     let segs = "";
-    for (let i=0;i<PIPE_N;i++) {
-      const g = PIPELINE[i].group;
-      const cls = done[i] ? `done g-${g}` : (i === cur ? "current" : "");
-      segs += `<div class="seg ${cls}" title="${PIPELINE[i].name}${done[i]?' ✓':''}"></div>`;
+    for (let i=0;i<total;i++) {
+      const s = STAGES[i];
+      const isCurr = !c.stages[i] && s.gates && s.name === curName;
+      const cls = c.stages[i] ? `done g-${s.group}` : (isCurr ? "current" : "");
+      segs += `<div class="seg ${cls}" title="${s.name}${c.stages[i]?' ✓':''}"></div>`;
     }
-    const dc = doneCount(c);
-    return `<div class="track">${segs}</div><div class="track-meta">${dc}/${PIPE_N} stages · ${Math.round(dc/PIPE_N*100)}%</div>`;
+    const dc = progressCount(c);
+    return `<div class="track">${segs}</div><div class="track-meta">${dc}/${total} tasks · ${Math.round(dc/total*100)}%</div>`;
   }
 
   function stepsHTML(c) {
@@ -398,7 +400,7 @@
     return STAGES.map((s,i) => {
       const isCurr = !c.stages[i] && s.gates && s.name === curName;
       const st = c.stages[i] ? "done" : (isCurr ? "curr" : "todo");
-      const tag = c.stages[i] ? "Done" : (isCurr ? "Current" : (!s.gates ? "Setup · doesn't gate" : ""));
+      const tag = c.stages[i] ? "Done" : (isCurr ? "Current" : "");
       const ic = st === "done"
         ? `<span class="ic done"><svg width="10" height="10" viewBox="0 0 12 12"><path d="M2.5 6.2l2.2 2.2 4.8-5" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`
         : st === "curr"
@@ -421,7 +423,8 @@
     const key = state.sort;
     list.sort((a,b) => {
       let av, bv;
-      if (key === "progress" || key === "stage") { av=doneCount(a); bv=doneCount(b); }
+      if (key === "progress") { av=progressCount(a); bv=progressCount(b); }
+      else if (key === "stage") { av=curIndex(a); bv=curIndex(b); }
       else if (key === "due") { av=a.due?new Date(a.due):new Date("2100-01-01"); bv=b.due?new Date(b.due):new Date("2100-01-01"); }
       else if (key === "wave") { av=+a.wave||0; bv=+b.wave||0; }
       else if (key === "lead") { av=(a.lead||"").toLowerCase(); bv=(b.lead||"").toLowerCase(); }
