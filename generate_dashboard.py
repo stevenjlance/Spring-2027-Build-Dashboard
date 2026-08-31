@@ -33,7 +33,7 @@ PROJECT_ID = "1217460412062915"
 CF_STAGE = "1217460412062933"
 CF_TYPE = "1217460412062956"
 CF_CLASS = "1217460412062929"
-CF_WAVE = "1217460412062942"
+CF_WAVE = "1217460412062942"  # the "Sprint" custom field (formerly "Wave"); matched by GID
 
 # Canonical pipeline order. Left = Asana stage name, right = short display label.
 STAGE_ORDER = [
@@ -134,7 +134,7 @@ def build_courses(tasks):
             "kind": kind,
             "type": "—" if kind == "sp" else (cf(sample, CF_TYPE) or cf(sample, "Course Type") or "—"),
             "classification": cls,
-            "wave": cf(sample, CF_WAVE) or cf(sample, "Wave") or "—",
+            "wave": cf(sample, CF_WAVE) or cf(sample, "Sprint") or cf(sample, "Wave") or "—",
             "lead": (lead.get("name") if isinstance(lead, dict) else None) or "Unassigned",
             "stages": stages_done,
             "due": (cur_task or {}).get("due_on"),
