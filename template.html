@@ -254,7 +254,7 @@
     <select id="f-stage" aria-label="Filter by stage"></select>
     <select id="f-type" aria-label="Filter by type"></select>
     <select id="f-assignee" aria-label="Filter by lead"></select>
-    <select id="f-wave" aria-label="Filter by wave"></select>
+    <select id="f-wave" aria-label="Filter by sprint"></select>
     <button class="reset" id="reset" type="button">Reset</button>
   </div>
 
@@ -271,7 +271,7 @@
             <th data-sort="lead">Lead <span class="arrow">↓</span></th>
             <th data-sort="progress" class="sorted">Progress <span class="arrow">↓</span></th>
             <th data-sort="stage">Current Stage <span class="arrow">↓</span></th>
-            <th data-sort="wave">Wave <span class="arrow">↓</span></th>
+            <th data-sort="wave">Sprint <span class="arrow">↓</span></th>
             <th data-sort="due">Stage Due <span class="arrow">↓</span></th>
           </tr>
         </thead>
@@ -398,7 +398,7 @@
     fill(stageSel, state.category === "sp" ? "All statuses" : "All stages", bucketsFor(state.category).map(b => b.name));
     fill(typeSel, "All types", [...new Set(list.map(c => c.type))].sort());
     fill(asgSel, "All leads", [...new Set(list.map(c => c.lead))].sort());
-    fill(waveSel, "All waves", [...new Set(list.map(c => String(c.wave)))].sort((a,b) => (+a||0)-(+b||0)), w => "Wave " + w);
+    fill(waveSel, "All sprints", [...new Set(list.map(c => String(c.wave)))].sort((a,b) => (+a||0)-(+b||0)), w => "Sprint " + w);
     typeSel.style.display = state.category === "sp" ? "none" : "";  // Type is meaningless for S&P
   }
 
