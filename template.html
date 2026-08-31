@@ -98,6 +98,17 @@
   .kpi.is-live .val { color: var(--live); }
   .kpi.is-review .val { color: var(--review); }
 
+  .tabs { display: inline-flex; gap: 4px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 11px; padding: 4px; margin: 24px 0 18px; }
+  .tab {
+    display: inline-flex; align-items: center; gap: 8px; font: inherit; font-size: 14px; font-weight: 600;
+    color: var(--muted); background: none; border: none; border-radius: 8px; padding: 8px 16px; cursor: pointer;
+    transition: background .12s, color .12s;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab.active { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+  .tab-n { font-size: 12px; font-weight: 700; color: var(--faint); background: var(--ground); border-radius: 999px; padding: 1px 8px; font-variant-numeric: tabular-nums; }
+  .tab.active .tab-n { color: var(--accent); background: var(--accent-soft); }
+
   .funnel {
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
     padding: 16px 18px 18px; box-shadow: var(--shadow); margin-bottom: 22px;
@@ -220,13 +231,18 @@
   <div>
     <span class="eyebrow"><span class="dot"></span>Live from Asana · updated <span id="updatedAt" data-utc="__GENERATED_ISO__">__GENERATED_HUMAN__</span></span>
     <h1>Course Build Tracker — Spring 2027</h1>
-    <p class="lede">Where each course sits in the build pipeline. A course advances one stage at a time and goes <b>Live</b> once every pipeline stage is complete.</p>
+    <p class="lede">Where each course sits in its build pipeline. Course builds advance through the 8-task pipeline; Standards &amp; Practices items run a shorter two-step path.</p>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-cat="build" type="button">Course Builds <span class="tab-n" id="tab-n-build"></span></button>
+    <button class="tab" data-cat="sp" type="button">Standards &amp; Practices <span class="tab-n" id="tab-n-sp"></span></button>
   </div>
 
   <div class="kpis" id="kpis"></div>
 
   <div class="funnel">
-    <h2>Courses by current stage — click to filter</h2>
+    <h2 id="funnelTitle">Courses by current stage — click to filter</h2>
     <div class="funnel-row" id="funnel"></div>
   </div>
 
@@ -273,6 +289,7 @@
       <span><i style="background:var(--live)"></i>Live</span>
     </div>
     <p style="margin-top:12px"><b>How stage is read:</b> the current stage is the next unfinished stage. If <b>Act I</b> is done, the course is in <b>Act II</b>; if <b>Act IV</b> is done, it's in <b>Peer Review</b>. Pipeline: Course Plan → Act I → Act II → Act III → Act IV → Peer Review → Baselining. <b>Global Resource &amp; Shell Setup</b> counts toward each course's progress but does <b>not</b> gate the stage — a course reads as Act I whether or not Shell Setup is checked.<br>
+    <b>Standards &amp; Practices</b> items (separate tab) run a two-task path: <b>Not started</b> → <b>Baselining</b> (once the S&amp;P task is done) → <b>Complete</b> (once baselined).<br>
     Pulled live from the <b>Spring 2027 Course Builds</b> Asana board. Curriculum-Committee items are excluded. Lead and Stage Due reflect the task for the current stage.</p>
   </footer>
 </div>
@@ -290,12 +307,15 @@
   ];
   const LIVE = { name: "Live", short: "Live", group: "live" };
 
-  // Shell Setup is tracked in the checklist but does NOT gate the pipeline. Current
-  // stage, progress, and the funnel are computed over the gating stages only, so a
-  // course with Course Plan done reads as "Act I" whether or not Shell Setup is checked.
-  const PIPELINE_IDX = STAGES.map((s, i) => (s.gates ? i : -1)).filter(i => i >= 0);
-  const PIPELINE = PIPELINE_IDX.map(i => STAGES[i]);
-  const PIPE_N = PIPELINE.length;
+  // Standards & Practices items run a two-task path (both tasks gate). Status maps to
+  // Not started (S&P task open) → Baselining (S&P done) → Complete (both done).
+  const SP_STAGES = [
+    { name: "Standards & Practices", short: "Standards & Practices", group: "plan",   gates: true },
+    { name: "Baselining",            short: "Baselining",            group: "review", gates: true },
+  ];
+
+  // Build pipeline = the 7 gating stages (Shell Setup is tracked but does not gate).
+  const PIPELINE = STAGES.filter(s => s.gates);
 
   // Show the build/refresh instant in the viewer's own timezone.
   (function () {
@@ -317,56 +337,107 @@
   const avatarColor = (n) => AV_COLORS[[...n].reduce((a,c)=>a+c.charCodeAt(0),0) % AV_COLORS.length];
   const initials = (n) => n.split(" ").filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase();
 
-  const pipeDone = (c) => PIPELINE_IDX.map(i => c.stages[i]);     // 7 booleans, gating stages only
-  const doneCount = (c) => pipeDone(c).filter(Boolean).length;   // gating stages done (drives stage/KPIs)
-  const progressCount = (c) => c.stages.filter(Boolean).length;  // all 8 tasks (drives progress bar)
-  const curIndex = (c) => { const i = pipeDone(c).indexOf(false); return i === -1 ? PIPE_N : i; };
-  const currentStage = (c) => curIndex(c) >= PIPE_N ? LIVE : PIPELINE[curIndex(c)];
+  // Per-kind stage model: builds use the 8-task STAGES, S&P uses SP_STAGES.
+  const stagesOf = (c) => c.kind === "sp" ? SP_STAGES : STAGES;
+  const pipeIdx = (c) => stagesOf(c).map((s, i) => (s.gates ? i : -1)).filter(i => i >= 0);
+  const pipeStages = (c) => pipeIdx(c).map(i => stagesOf(c)[i]);
+  const pipeDone = (c) => pipeIdx(c).map(i => c.stages[i]);
+  const doneCount = (c) => pipeDone(c).filter(Boolean).length;   // gating tasks done
+  const progressCount = (c) => c.stages.filter(Boolean).length;  // all tasks (drives the progress bar)
+  const totalTasks = (c) => stagesOf(c).length;                  // 8 for builds, 2 for S&P
+  const curIndex = (c) => { const i = pipeDone(c).indexOf(false); return i === -1 ? pipeStages(c).length : i; };
+  const isComplete = (c) => curIndex(c) >= pipeStages(c).length;
+
+  function currentStage(c) {
+    const i = curIndex(c);
+    if (c.kind === "sp") {
+      if (i >= 2) return { name: "Complete",    short: "Complete",    group: "live" };
+      if (i === 1) return { name: "Baselining",  short: "Baselining",  group: "review" };
+      return               { name: "Not started", short: "Not started", group: "plan" };
+    }
+    return i >= PIPELINE.length ? LIVE : PIPELINE[i];
+  }
+
+  // Funnel + stage-filter buckets per category.
+  function bucketsFor(cat) {
+    if (cat === "sp") return [
+      { label: "Not started", name: "Not started", group: "plan" },
+      { label: "Baselining",  name: "Baselining",  group: "review" },
+      { label: "Complete",    name: "Complete",    group: "live" },
+    ];
+    return [...PIPELINE.map(s => ({ label: s.short, name: s.name, group: s.group })),
+            { label: "Live", name: "Live", group: "live" }];
+  }
+
   function fmtDate(d) {
     if (!d) return null;
     const dt = new Date(d + "T00:00:00");
     return dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   }
   const TODAY = new Date(new Date().toISOString().slice(0,10) + "T00:00:00");
-  const isOverdue = (c) => curIndex(c) < PIPE_N && c.due && new Date(c.due+"T00:00:00") < TODAY;
+  const isOverdue = (c) => !isComplete(c) && c.due && new Date(c.due+"T00:00:00") < TODAY;
 
-  const state = { q:"", stage:"", type:"", assignee:"", wave:"", sort:"progress", dir:-1 };
+  const state = { category:"build", q:"", stage:"", type:"", assignee:"", wave:"", sort:"progress", dir:-1 };
+
+  const BY_CAT = { build: COURSES.filter(c => c.kind !== "sp"), sp: COURSES.filter(c => c.kind === "sp") };
+  const activeList = () => BY_CAT[state.category];
 
   function opt(v, label) { const o = document.createElement("option"); o.value = v; o.textContent = label; return o; }
   const stageSel = document.getElementById("f-stage");
-  stageSel.appendChild(opt("", "All stages"));
-  [...PIPELINE.map(s=>s.name), "Live"].forEach(s => stageSel.appendChild(opt(s, s)));
-  const typeSel = document.getElementById("f-type");
-  typeSel.appendChild(opt("", "All types"));
-  [...new Set(COURSES.map(c=>c.type))].sort().forEach(t => typeSel.appendChild(opt(t, t)));
-  const asgSel = document.getElementById("f-assignee");
-  asgSel.appendChild(opt("", "All leads"));
-  [...new Set(COURSES.map(c=>c.lead))].sort().forEach(a => asgSel.appendChild(opt(a, a)));
-  const waveSel = document.getElementById("f-wave");
-  waveSel.appendChild(opt("", "All waves"));
-  [...new Set(COURSES.map(c=>String(c.wave)))].sort().forEach(w => waveSel.appendChild(opt(w, "Wave " + w)));
+  const typeSel  = document.getElementById("f-type");
+  const asgSel   = document.getElementById("f-assignee");
+  const waveSel  = document.getElementById("f-wave");
+
+  function fill(sel, firstLabel, values, labelFn) {
+    sel.innerHTML = "";
+    sel.appendChild(opt("", firstLabel));
+    values.forEach(v => sel.appendChild(opt(String(v), labelFn ? labelFn(v) : String(v))));
+  }
+  function buildFilters() {
+    const list = activeList();
+    fill(stageSel, state.category === "sp" ? "All statuses" : "All stages", bucketsFor(state.category).map(b => b.name));
+    fill(typeSel, "All types", [...new Set(list.map(c => c.type))].sort());
+    fill(asgSel, "All leads", [...new Set(list.map(c => c.lead))].sort());
+    fill(waveSel, "All waves", [...new Set(list.map(c => String(c.wave)))].sort((a,b) => (+a||0)-(+b||0)), w => "Wave " + w);
+    typeSel.style.display = state.category === "sp" ? "none" : "";  // Type is meaningless for S&P
+  }
 
   function renderKPIs() {
-    const total = COURSES.length;
-    const live = COURSES.filter(c => doneCount(c) >= PIPE_N).length;
-    const inReview = COURSES.filter(c => { const i = curIndex(c); return i >= PIPE_N - 2 && i < PIPE_N; }).length;
-    const notStarted = COURSES.filter(c => doneCount(c) === 0).length;
-    const kpis = [
-      { label: "Courses", val: total, sub: "in the Spring 2027 build" },
-      { label: "Live", val: live, sub: "all stages complete", cls: "is-live" },
-      { label: "In review", val: inReview, sub: "Peer Review or Baselining", cls: "is-review" },
-      { label: "Not started", val: notStarted, sub: "still at Course Plan" },
-    ];
+    const list = activeList();
+    let kpis;
+    if (state.category === "sp") {
+      const complete = list.filter(isComplete).length;
+      const baselining = list.filter(c => curIndex(c) === 1).length;
+      const notStarted = list.filter(c => curIndex(c) === 0).length;
+      kpis = [
+        { label: "S&P items", val: list.length, sub: "standards & practices reviews" },
+        { label: "Complete", val: complete, sub: "both tasks done", cls: "is-live" },
+        { label: "Baselining", val: baselining, sub: "S&P done, baselining left", cls: "is-review" },
+        { label: "Not started", val: notStarted, sub: "S&P task not done" },
+      ];
+    } else {
+      const live = list.filter(isComplete).length;
+      const inReview = list.filter(c => { const i = curIndex(c); return i >= PIPELINE.length - 2 && i < PIPELINE.length; }).length;
+      const notStarted = list.filter(c => curIndex(c) === 0).length;
+      kpis = [
+        { label: "Courses", val: list.length, sub: "in the Spring 2027 build" },
+        { label: "Live", val: live, sub: "all stages complete", cls: "is-live" },
+        { label: "In review", val: inReview, sub: "Peer Review or Baselining", cls: "is-review" },
+        { label: "Not started", val: notStarted, sub: "still at Course Plan" },
+      ];
+    }
     document.getElementById("kpis").innerHTML = kpis.map(k =>
       `<div class="kpi ${k.cls||""}"><div class="label">${k.label}</div><div class="val">${k.val}</div><div class="sub">${k.sub}</div></div>`
     ).join("");
   }
 
   function renderFunnel() {
-    const buckets = PIPELINE.map((s,i) => ({ label: s.short, name: s.name, group: s.group, count: COURSES.filter(c=>curIndex(c)===i).length }));
-    buckets.push({ label: "Live", name: "Live", group: "live", count: COURSES.filter(c=>curIndex(c)>=PIPE_N).length });
+    const list = activeList();
+    const buckets = bucketsFor(state.category).map(b => ({ ...b, count: list.filter(c => currentStage(c).name === b.name).length }));
     const max = Math.max(1, ...buckets.map(b=>b.count));
-    document.getElementById("funnel").innerHTML = buckets.map(b => {
+    const funnel = document.getElementById("funnel");
+    funnel.style.gridTemplateColumns = `repeat(${buckets.length}, 1fr)`;
+    funnel.innerHTML = buckets.map(b => {
       const h = b.count === 0 ? 0 : Math.round(20 + (b.count/max)*80);
       const active = state.stage === b.name;
       return `<button class="fcell ${active?"active":""}" data-stage="${b.name}" type="button" aria-label="${b.count} in ${b.name}">
@@ -381,13 +452,20 @@
     }));
   }
 
+  // Full-array index of the current gating stage (where the "current" ring sits).
+  function curFullIdx(c) {
+    const pidx = pipeIdx(c), cur = curIndex(c);
+    return cur < pidx.length ? pidx[cur] : -1;
+  }
+
   function trackerHTML(c) {
-    const curName = currentStage(c).name;   // ring goes on the current gating stage
-    const total = STAGES.length;            // all 8 tasks count toward progress
+    const stgs = stagesOf(c);
+    const curFull = curFullIdx(c);
+    const total = stgs.length;              // all tasks count toward progress
     let segs = "";
     for (let i=0;i<total;i++) {
-      const s = STAGES[i];
-      const isCurr = !c.stages[i] && s.gates && s.name === curName;
+      const s = stgs[i];
+      const isCurr = !c.stages[i] && i === curFull;
       const cls = c.stages[i] ? `done g-${s.group}` : (isCurr ? "current" : "");
       segs += `<div class="seg ${cls}" title="${s.name}${c.stages[i]?' ✓':''}"></div>`;
     }
@@ -396,9 +474,9 @@
   }
 
   function stepsHTML(c) {
-    const curName = currentStage(c).name;
-    return STAGES.map((s,i) => {
-      const isCurr = !c.stages[i] && s.gates && s.name === curName;
+    const curFull = curFullIdx(c);
+    return stagesOf(c).map((s,i) => {
+      const isCurr = !c.stages[i] && i === curFull;
       const st = c.stages[i] ? "done" : (isCurr ? "curr" : "todo");
       const tag = c.stages[i] ? "Done" : (isCurr ? "Current" : "");
       const ic = st === "done"
@@ -411,7 +489,7 @@
   }
 
   function filtered() {
-    let list = COURSES.filter(c => {
+    let list = activeList().filter(c => {
       const cs = currentStage(c).name;
       if (state.q) { const q = state.q.toLowerCase(); if (!c.name.toLowerCase().includes(q) && !c.code.toLowerCase().includes(q)) return false; }
       if (state.stage && cs !== state.stage) return false;
@@ -442,7 +520,7 @@
     list.forEach(c => {
       const cs = currentStage(c);
       const overdue = isOverdue(c);
-      const live = doneCount(c) >= PIPE_N;
+      const live = isComplete(c);
       const tr = document.createElement("tr");
       tr.className = "course-row";
       const dueHTML = live
@@ -471,8 +549,9 @@
       tbody.appendChild(detail);
     });
     document.getElementById("empty").style.display = list.length ? "none" : "block";
+    const noun = state.category === "sp" ? "items" : "courses";
     document.getElementById("countNote").textContent =
-      `Showing ${list.length} of ${COURSES.length} courses` +
+      `Showing ${list.length} of ${activeList().length} ${noun}` +
       (state.stage||state.type||state.assignee||state.wave||state.q ? " · filtered" : "");
     document.querySelectorAll("thead th[data-sort]").forEach(th => {
       const on = th.dataset.sort === state.sort;
@@ -497,6 +576,24 @@
     render();
   }));
 
+  // Category tabs: Course Builds vs Standards & Practices.
+  document.getElementById("tab-n-build").textContent = BY_CAT.build.length;
+  document.getElementById("tab-n-sp").textContent = BY_CAT.sp.length;
+  document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
+    if (state.category === t.dataset.cat) return;
+    state.category = t.dataset.cat;
+    document.querySelectorAll(".tab").forEach(x => x.classList.toggle("active", x.dataset.cat === state.category));
+    Object.assign(state, { q:"", stage:"", type:"", assignee:"", wave:"", sort:"progress", dir:-1 });
+    document.getElementById("q").value = "";
+    document.getElementById("funnelTitle").textContent = state.category === "sp"
+      ? "Standards & Practices by status — click to filter"
+      : "Courses by current stage — click to filter";
+    buildFilters();
+    renderKPIs();
+    render();
+  }));
+
+  buildFilters();
   renderKPIs();
   render();
 </script>

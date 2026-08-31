@@ -53,6 +53,10 @@ STAGE_NAMES = [s[0] for s in STAGE_ORDER]
 SHELL_STAGE = "Global Resources and Other Shell Setup"
 PIPELINE_NAMES = [s for s in STAGE_NAMES if s != SHELL_STAGE]
 
+# Standards & Practices items are a separate, non-build category with a two-task path.
+SP_CLASSIFICATION = "S & P"
+SP_STAGE_NAMES = ["Standards & Practices", "Baselining"]
+
 OPT_FIELDS = ",".join([
     "name", "completed", "due_on", "assignee.name",
     "custom_fields.name", "custom_fields.display_value",
@@ -104,32 +108,40 @@ def build_courses(tasks):
 
     courses = []
     for name, items in groups.items():
+        sample = items[0]
+        cls = (cf(sample, CF_CLASS) or cf(sample, "Classification") or "").strip()
+        kind = "sp" if cls == SP_CLASSIFICATION else "build"
+        stage_names = SP_STAGE_NAMES if kind == "sp" else STAGE_NAMES
+        # Gating tasks: S&P — both tasks; build — the pipeline (Shell Setup excluded).
+        pipeline_names = SP_STAGE_NAMES if kind == "sp" else PIPELINE_NAMES
+
         by_stage = {}
         for it in items:
             by_stage[cf(it, CF_STAGE) or cf(it, "Stage")] = it
 
-        # Full 8-item completion, for the checklist detail view.
-        stages_done = [bool(by_stage.get(s, {}).get("completed")) for s in STAGE_NAMES]
-        # Current stage is derived from the PIPELINE only — Shell Setup does not gate.
-        cur_name = next((s for s in PIPELINE_NAMES
+        # Completion for every task in this kind's list (drives checklist + progress).
+        stages_done = [bool(by_stage.get(s, {}).get("completed")) for s in stage_names]
+        # Current stage/lead/due derive from the first unfinished gating task.
+        cur_name = next((s for s in pipeline_names
                          if not by_stage.get(s, {}).get("completed")), None)
         cur_task = by_stage.get(cur_name) if cur_name else None
-        sample = items[0]
         lead = (cur_task or {}).get("assignee") or sample.get("assignee") or {}
         code = name.split(":")[0].strip() if ":" in name else name
 
         courses.append({
             "name": name,
             "code": code,
-            "type": cf(sample, CF_TYPE) or cf(sample, "Course Type") or "—",
-            "classification": (cf(sample, CF_CLASS) or cf(sample, "Classification") or "").strip(),
+            "kind": kind,
+            "type": "—" if kind == "sp" else (cf(sample, CF_TYPE) or cf(sample, "Course Type") or "—"),
+            "classification": cls,
             "wave": cf(sample, CF_WAVE) or cf(sample, "Wave") or "—",
             "lead": (lead.get("name") if isinstance(lead, dict) else None) or "Unassigned",
             "stages": stages_done,
             "due": (cur_task or {}).get("due_on"),
         })
 
-    courses.sort(key=lambda c: (-sum(c["stages"]), c["name"]))
+    # Builds first, then by progress desc, then name.
+    courses.sort(key=lambda c: (c["kind"] != "build", -sum(c["stages"]), c["name"]))
     return courses
 
 
@@ -173,10 +185,13 @@ def main():
     with open(out, "w") as fh:
         fh.write(html)
 
+    builds = [c for c in courses if c["kind"] == "build"]
+    sp = [c for c in courses if c["kind"] == "sp"]
     pipe_idx = [i for i, s in enumerate(STAGE_NAMES) if s != SHELL_STAGE]
-    done = sum(1 for c in courses if all(c["stages"][i] for i in pipe_idx))
+    live = sum(1 for c in builds if all(c["stages"][i] for i in pipe_idx))
+    sp_done = sum(1 for c in sp if all(c["stages"]))
     print(f"Wrote {out}")
-    print(f"{len(courses)} courses · {done} live · updated {generated_human}")
+    print(f"{len(builds)} builds ({live} live) · {len(sp)} S&P ({sp_done} complete) · updated {generated_human}")
 
 
 if __name__ == "__main__":
