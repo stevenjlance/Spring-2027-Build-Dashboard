@@ -53,9 +53,24 @@ STAGE_NAMES = [s[0] for s in STAGE_ORDER]
 SHELL_STAGE = "Global Resources and Other Shell Setup"
 PIPELINE_NAMES = [s for s in STAGE_NAMES if s != SHELL_STAGE]
 
+# Pillars courses are built like Pathways but WITHOUT an Act IV task (7 tasks).
+PILLARS_STAGE_NAMES = [s for s in STAGE_NAMES if s != "Act IV"]
+PILLARS_PIPELINE_NAMES = [s for s in PILLARS_STAGE_NAMES if s != SHELL_STAGE]
+
 # Standards & Practices items are a separate, non-build category with a two-task path.
 SP_CLASSIFICATION = "S & P"
 SP_STAGE_NAMES = ["Standards & Practices", "Baselining"]
+
+# Maps a Pillars course code to its "Video Scripts" Drive folder (see video_folders.json).
+def load_video_folders():
+    here = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(here, "video_folders.json")
+    try:
+        with open(path) as fh:
+            data = json.load(fh)
+        return {k: v for k, v in data.items() if not k.startswith("_")}
+    except FileNotFoundError:
+        return {}
 
 OPT_FIELDS = ",".join([
     "name", "completed", "due_on", "assignee.name",
@@ -106,14 +121,19 @@ def build_courses(tasks):
             continue
         groups.setdefault(t["name"], []).append(t)
 
+    video_folders = load_video_folders()
+    # Stage + gating lists per kind.
+    STAGE_LISTS = {"pathways": STAGE_NAMES, "pillars": PILLARS_STAGE_NAMES, "sp": SP_STAGE_NAMES}
+    PIPE_LISTS = {"pathways": PIPELINE_NAMES, "pillars": PILLARS_PIPELINE_NAMES, "sp": SP_STAGE_NAMES}
+    KIND_ORDER = {"pathways": 0, "pillars": 1, "sp": 2}
+
     courses = []
     for name, items in groups.items():
         sample = items[0]
         cls = (cf(sample, CF_CLASS) or cf(sample, "Classification") or "").strip()
-        kind = "sp" if cls == SP_CLASSIFICATION else "build"
-        stage_names = SP_STAGE_NAMES if kind == "sp" else STAGE_NAMES
-        # Gating tasks: S&P — both tasks; build — the pipeline (Shell Setup excluded).
-        pipeline_names = SP_STAGE_NAMES if kind == "sp" else PIPELINE_NAMES
+        kind = "sp" if cls == SP_CLASSIFICATION else "pillars" if cls == "Pillars" else "pathways"
+        stage_names = STAGE_LISTS[kind]
+        pipeline_names = PIPE_LISTS[kind]  # gating tasks (Shell Setup excluded for builds)
 
         by_stage = {}
         for it in items:
@@ -128,7 +148,7 @@ def build_courses(tasks):
         lead = (cur_task or {}).get("assignee") or sample.get("assignee") or {}
         code = name.split(":")[0].strip() if ":" in name else name
 
-        courses.append({
+        course = {
             "name": name,
             "code": code,
             "kind": kind,
@@ -138,10 +158,13 @@ def build_courses(tasks):
             "lead": (lead.get("name") if isinstance(lead, dict) else None) or "Unassigned",
             "stages": stages_done,
             "due": (cur_task or {}).get("due_on"),
-        })
+        }
+        if kind == "pillars":
+            course["videoFolder"] = video_folders.get(code)
+        courses.append(course)
 
-    # Builds first, then by progress desc, then name.
-    courses.sort(key=lambda c: (c["kind"] != "build", -sum(c["stages"]), c["name"]))
+    # Pathways, then Pillars, then S&P; within each by progress desc, then name.
+    courses.sort(key=lambda c: (KIND_ORDER.get(c["kind"], 9), -sum(c["stages"]), c["name"]))
     return courses
 
 
@@ -185,13 +208,9 @@ def main():
     with open(out, "w") as fh:
         fh.write(html)
 
-    builds = [c for c in courses if c["kind"] == "build"]
-    sp = [c for c in courses if c["kind"] == "sp"]
-    pipe_idx = [i for i, s in enumerate(STAGE_NAMES) if s != SHELL_STAGE]
-    live = sum(1 for c in builds if all(c["stages"][i] for i in pipe_idx))
-    sp_done = sum(1 for c in sp if all(c["stages"]))
+    n = lambda k: sum(1 for c in courses if c["kind"] == k)
     print(f"Wrote {out}")
-    print(f"{len(builds)} builds ({live} live) · {len(sp)} S&P ({sp_done} complete) · updated {generated_human}")
+    print(f"{n('pathways')} Pathways · {n('pillars')} Pillars · {n('sp')} S&P · updated {generated_human}")
 
 
 if __name__ == "__main__":

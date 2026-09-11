@@ -1,0 +1,9 @@
+{
+  "_comment": "Maps a Pillars course code (the part before the ':' in the Asana task name) to its 'Video Scripts' Google Drive folder. Add new Pillars courses here as they appear.",
+  "MATHS I": "https://drive.google.com/drive/folders/1knvTE6gX3iSJX_QzgG1Uqt9anMRI1GNm",
+  "HISTY I": "https://drive.google.com/drive/folders/10UV85hSA2NLEzmaUviPg_xP2Ht7nOS1V",
+  "MATHS IV": "https://drive.google.com/drive/folders/1DeoxTe9e6YyLxLu9VO0QnUTIYyEsFR74",
+  "SPNSH II": "https://drive.google.com/drive/folders/10dUEsOrAdBv2dYTWL61C6N0fjgaL7RgE",
+  "HISTY II": "https://drive.google.com/drive/folders/19x-ZVakS7REk_ZQKSQo7gtBHtoWgbsTp",
+  "BUSNS XII": "https://drive.google.com/drive/folders/13zgl3eHbVXeIdP90iR4qNz9HWBkf9t3O"
+}

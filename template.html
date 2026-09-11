@@ -98,7 +98,7 @@
   .kpi.is-live .val { color: var(--live); }
   .kpi.is-review .val { color: var(--review); }
 
-  .tabs { display: inline-flex; gap: 4px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 11px; padding: 4px; margin: 24px 0 18px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 11px; padding: 4px; margin: 24px 0 18px; width: fit-content; max-width: 100%; }
   .tab {
     display: inline-flex; align-items: center; gap: 8px; font: inherit; font-size: 14px; font-weight: 600;
     color: var(--muted); background: none; border: none; border-radius: 8px; padding: 8px 16px; cursor: pointer;
@@ -194,6 +194,10 @@
   .due .flag { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; display: block; }
   .due.none { color: var(--faint); }
 
+  .course-row.static { cursor: default; }
+  .folder-link { color: var(--accent); text-decoration: none; font-weight: 600; font-size: 13px; white-space: nowrap; }
+  .folder-link:hover { text-decoration: underline; }
+
   .chev { color: var(--faint); transition: transform .15s; }
   tr.expanded .chev { transform: rotate(90deg); }
 
@@ -231,12 +235,14 @@
   <div>
     <span class="eyebrow"><span class="dot"></span>Live from Asana · updated <span id="updatedAt" data-utc="__GENERATED_ISO__">__GENERATED_HUMAN__</span></span>
     <h1>Course Build Tracker — Spring 2027</h1>
-    <p class="lede">Where each course sits in its build pipeline. Course builds advance through the 8-task pipeline; Standards &amp; Practices items run a shorter two-step path.</p>
+    <p class="lede">Where each course sits in its build pipeline. Pathways builds run an 8-task pipeline; Pillars builds skip Act IV (7 tasks); Standards &amp; Practices items run a two-step path.</p>
   </div>
 
   <div class="tabs" id="tabs">
-    <button class="tab active" data-cat="build" type="button">Course Builds <span class="tab-n" id="tab-n-build"></span></button>
+    <button class="tab active" data-cat="pathways" type="button">Pathways Build <span class="tab-n" id="tab-n-pathways"></span></button>
+    <button class="tab" data-cat="pillars" type="button">Pillars Build <span class="tab-n" id="tab-n-pillars"></span></button>
     <button class="tab" data-cat="sp" type="button">Standards &amp; Practices <span class="tab-n" id="tab-n-sp"></span></button>
+    <button class="tab" data-cat="video" type="button">Video Content <span class="tab-n" id="tab-n-video"></span></button>
   </div>
 
   <div class="kpis" id="kpis"></div>
@@ -263,18 +269,7 @@
   <div class="tablecard">
     <div class="scroll">
       <table>
-        <thead>
-          <tr>
-            <th class="nosort" style="width:28px"></th>
-            <th data-sort="name">Course <span class="arrow">↓</span></th>
-            <th data-sort="type">Type <span class="arrow">↓</span></th>
-            <th data-sort="lead">Lead <span class="arrow">↓</span></th>
-            <th data-sort="progress" class="sorted">Progress <span class="arrow">↓</span></th>
-            <th data-sort="stage">Current Stage <span class="arrow">↓</span></th>
-            <th data-sort="wave">Sprint <span class="arrow">↓</span></th>
-            <th data-sort="due">Stage Due <span class="arrow">↓</span></th>
-          </tr>
-        </thead>
+        <thead id="thead"></thead>
         <tbody id="rows"></tbody>
       </table>
     </div>
@@ -288,13 +283,14 @@
       <span><i style="background:var(--review)"></i>Review</span>
       <span><i style="background:var(--live)"></i>Live</span>
     </div>
-    <p style="margin-top:12px"><b>How stage is read:</b> the current stage is the next unfinished stage. If <b>Act I</b> is done, the course is in <b>Act II</b>; if <b>Act IV</b> is done, it's in <b>Peer Review</b>. Pipeline: Course Plan → Act I → Act II → Act III → Act IV → Peer Review → Baselining. <b>Global Resource &amp; Shell Setup</b> counts toward each course's progress but does <b>not</b> gate the stage — a course reads as Act I whether or not Shell Setup is checked.<br>
-    <b>Standards &amp; Practices</b> items (separate tab) run a two-task path: <b>Not started</b> → <b>Baselining</b> (once the S&amp;P task is done) → <b>Complete</b> (once baselined).<br>
+    <p style="margin-top:12px"><b>How stage is read:</b> the current stage is the next unfinished stage. <b>Pathways</b> pipeline: Course Plan → Act I → Act II → Act III → Act IV → Peer Review → Baselining. <b>Pillars</b> builds are identical but have <b>no Act IV</b> (7 tasks). <b>Global Resource &amp; Shell Setup</b> counts toward progress but does <b>not</b> gate the stage.<br>
+    <b>Standards &amp; Practices</b> items run a two-task path: <b>Not started</b> → <b>Baselining</b> (once the S&amp;P task is done) → <b>Complete</b> (once baselined). <b>Video Content</b> lists each Pillars course as <b>Ready</b> once <b>Act III</b> is complete (else <b>Not ready</b>), with a link to its Video Scripts folder.<br>
     Pulled live from the <b>Spring 2027 Course Builds</b> Asana board. Curriculum-Committee items are excluded. Lead and Stage Due reflect the task for the current stage.</p>
   </footer>
 </div>
 
 <script>
+  // Pathways build: 8 tasks. Shell Setup is tracked but does not gate the stage.
   const STAGES = [
     { name: "Course Plan",                     short: "Course Plan", group: "plan",   gates: true  },
     { name: "Global Resource & Shell Setup",   short: "Shell Setup", group: "plan",   gates: false },
@@ -305,6 +301,8 @@
     { name: "Peer Review",                     short: "Peer Review", group: "review", gates: true  },
     { name: "Baselining",                      short: "Baselining",  group: "review", gates: true  },
   ];
+  // Pillars build: identical but WITHOUT Act IV (7 tasks).
+  const PILLARS_STAGES = STAGES.filter(s => s.name !== "Act IV");
   const LIVE = { name: "Live", short: "Live", group: "live" };
 
   // Standards & Practices items run a two-task path (both tasks gate). Status maps to
@@ -314,8 +312,13 @@
     { name: "Baselining",            short: "Baselining",            group: "review", gates: true },
   ];
 
-  // Build pipeline = the 7 gating stages (Shell Setup is tracked but does not gate).
-  const PIPELINE = STAGES.filter(s => s.gates);
+  // Gating pipelines per build kind (Shell Setup excluded).
+  const PIPELINES = {
+    pathways: STAGES.filter(s => s.gates),
+    pillars:  PILLARS_STAGES.filter(s => s.gates),
+  };
+  // A Pillars course is "Ready" for video once Act III is complete.
+  const ACT3_IDX = PILLARS_STAGES.findIndex(s => s.name === "Act III");
 
   // Show the build/refresh instant in the viewer's own timezone.
   (function () {
@@ -337,8 +340,9 @@
   const avatarColor = (n) => AV_COLORS[[...n].reduce((a,c)=>a+c.charCodeAt(0),0) % AV_COLORS.length];
   const initials = (n) => n.split(" ").filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase();
 
-  // Per-kind stage model: builds use the 8-task STAGES, S&P uses SP_STAGES.
-  const stagesOf = (c) => c.kind === "sp" ? SP_STAGES : STAGES;
+  // Per-kind stage model.
+  const stagesOf = (c) => c.kind === "sp" ? SP_STAGES : c.kind === "pillars" ? PILLARS_STAGES : STAGES;
+  const pipelineOf = (c) => c.kind === "pillars" ? PIPELINES.pillars : PIPELINES.pathways;
   const pipeIdx = (c) => stagesOf(c).map((s, i) => (s.gates ? i : -1)).filter(i => i >= 0);
   const pipeStages = (c) => pipeIdx(c).map(i => stagesOf(c)[i]);
   const pipeDone = (c) => pipeIdx(c).map(i => c.stages[i]);
@@ -355,17 +359,31 @@
       if (i === 1) return { name: "Baselining",  short: "Baselining",  group: "review" };
       return               { name: "Not started", short: "Not started", group: "plan" };
     }
-    return i >= PIPELINE.length ? LIVE : PIPELINE[i];
+    const pipe = pipelineOf(c);
+    return i >= pipe.length ? LIVE : pipe[i];
   }
+
+  // Video readiness: a Pillars course is Ready once Act III is complete.
+  const videoReady = (c) => !!c.stages[ACT3_IDX];
+  const videoStatus = (c) => videoReady(c)
+    ? { name: "Ready", short: "Ready", group: "live" }
+    : { name: "Not ready", short: "Not ready", group: "plan" };
+  // The bucket a course falls in, for the funnel + stage filter (category-aware).
+  const statusName = (c) => state.category === "video" ? videoStatus(c).name : currentStage(c).name;
 
   // Funnel + stage-filter buckets per category.
   function bucketsFor(cat) {
+    if (cat === "video") return [
+      { label: "Not ready", name: "Not ready", group: "plan" },
+      { label: "Ready",     name: "Ready",     group: "live" },
+    ];
     if (cat === "sp") return [
       { label: "Not started", name: "Not started", group: "plan" },
       { label: "Baselining",  name: "Baselining",  group: "review" },
       { label: "Complete",    name: "Complete",    group: "live" },
     ];
-    return [...PIPELINE.map(s => ({ label: s.short, name: s.name, group: s.group })),
+    const pipe = PIPELINES[cat] || PIPELINES.pathways;
+    return [...pipe.map(s => ({ label: s.short, name: s.name, group: s.group })),
             { label: "Live", name: "Live", group: "live" }];
   }
 
@@ -377,10 +395,17 @@
   const TODAY = new Date(new Date().toISOString().slice(0,10) + "T00:00:00");
   const isOverdue = (c) => !isComplete(c) && c.due && new Date(c.due+"T00:00:00") < TODAY;
 
-  const state = { category:"build", q:"", stage:"", type:"", assignee:"", wave:"", sort:"progress", dir:-1 };
+  const state = { category:"pathways", q:"", stage:"", type:"", assignee:"", wave:"", sort:"progress", dir:-1 };
+  const defaultSort = (cat) => cat === "video" ? { sort:"name", dir:1 } : { sort:"progress", dir:-1 };
 
-  const BY_CAT = { build: COURSES.filter(c => c.kind !== "sp"), sp: COURSES.filter(c => c.kind === "sp") };
+  const BY_CAT = {
+    pathways: COURSES.filter(c => c.kind === "pathways"),
+    pillars:  COURSES.filter(c => c.kind === "pillars"),
+    sp:       COURSES.filter(c => c.kind === "sp"),
+    video:    COURSES.filter(c => c.kind === "pillars"),  // same data, video-readiness view
+  };
   const activeList = () => BY_CAT[state.category];
+  const isBuildCat = () => state.category === "pathways" || state.category === "pillars";
 
   function opt(v, label) { const o = document.createElement("option"); o.value = v; o.textContent = label; return o; }
   const stageSel = document.getElementById("f-stage");
@@ -395,17 +420,28 @@
   }
   function buildFilters() {
     const list = activeList();
-    fill(stageSel, state.category === "sp" ? "All statuses" : "All stages", bucketsFor(state.category).map(b => b.name));
+    const stageLabel = isBuildCat() ? "All stages" : "All statuses";
+    fill(stageSel, stageLabel, bucketsFor(state.category).map(b => b.name));
     fill(typeSel, "All types", [...new Set(list.map(c => c.type))].sort());
     fill(asgSel, "All leads", [...new Set(list.map(c => c.lead))].sort());
     fill(waveSel, "All sprints", [...new Set(list.map(c => String(c.wave)))].sort((a,b) => (+a||0)-(+b||0)), w => "Sprint " + w);
-    typeSel.style.display = state.category === "sp" ? "none" : "";  // Type is meaningless for S&P
+    // Type/Lead only apply to builds; hide them for S&P and Video.
+    typeSel.style.display = isBuildCat() ? "" : "none";
+    asgSel.style.display  = isBuildCat() ? "" : "none";
   }
 
   function renderKPIs() {
     const list = activeList();
     let kpis;
-    if (state.category === "sp") {
+    if (state.category === "video") {
+      const ready = list.filter(videoReady).length;
+      kpis = [
+        { label: "Pillars courses", val: list.length, sub: "with video scripts" },
+        { label: "Ready", val: ready, sub: "Act III complete", cls: "is-live" },
+        { label: "Not ready", val: list.length - ready, sub: "Act III not done yet" },
+        { label: "Scripts folders", val: list.filter(c => c.videoFolder).length, sub: "linked in Drive" },
+      ];
+    } else if (state.category === "sp") {
       const complete = list.filter(isComplete).length;
       const baselining = list.filter(c => curIndex(c) === 1).length;
       const notStarted = list.filter(c => curIndex(c) === 0).length;
@@ -416,11 +452,13 @@
         { label: "Not started", val: notStarted, sub: "S&P task not done" },
       ];
     } else {
+      const pn = (PIPELINES[state.category] || PIPELINES.pathways).length;
       const live = list.filter(isComplete).length;
-      const inReview = list.filter(c => { const i = curIndex(c); return i >= PIPELINE.length - 2 && i < PIPELINE.length; }).length;
+      const inReview = list.filter(c => { const i = curIndex(c); return i >= pn - 2 && i < pn; }).length;
       const notStarted = list.filter(c => curIndex(c) === 0).length;
+      const label = state.category === "pillars" ? "Pillars courses" : "Pathways courses";
       kpis = [
-        { label: "Courses", val: list.length, sub: "in the Spring 2027 build" },
+        { label, val: list.length, sub: "in the Spring 2027 build" },
         { label: "Live", val: live, sub: "all stages complete", cls: "is-live" },
         { label: "In review", val: inReview, sub: "Peer Review or Baselining", cls: "is-review" },
         { label: "Not started", val: notStarted, sub: "still at Course Plan" },
@@ -433,7 +471,7 @@
 
   function renderFunnel() {
     const list = activeList();
-    const buckets = bucketsFor(state.category).map(b => ({ ...b, count: list.filter(c => currentStage(c).name === b.name).length }));
+    const buckets = bucketsFor(state.category).map(b => ({ ...b, count: list.filter(c => statusName(c) === b.name).length }));
     const max = Math.max(1, ...buckets.map(b=>b.count));
     const funnel = document.getElementById("funnel");
     funnel.style.gridTemplateColumns = `repeat(${buckets.length}, 1fr)`;
@@ -490,9 +528,8 @@
 
   function filtered() {
     let list = activeList().filter(c => {
-      const cs = currentStage(c).name;
       if (state.q) { const q = state.q.toLowerCase(); if (!c.name.toLowerCase().includes(q) && !c.code.toLowerCase().includes(q)) return false; }
-      if (state.stage && cs !== state.stage) return false;
+      if (state.stage && statusName(c) !== state.stage) return false;
       if (state.type && c.type !== state.type) return false;
       if (state.assignee && c.lead !== state.assignee) return false;
       if (state.wave && String(c.wave) !== String(state.wave)) return false;
@@ -503,6 +540,7 @@
       let av, bv;
       if (key === "progress") { av=progressCount(a); bv=progressCount(b); }
       else if (key === "stage") { av=curIndex(a); bv=curIndex(b); }
+      else if (key === "video") { av=videoReady(a)?1:0; bv=videoReady(b)?1:0; }
       else if (key === "due") { av=a.due?new Date(a.due):new Date("2100-01-01"); bv=b.due?new Date(b.due):new Date("2100-01-01"); }
       else if (key === "wave") { av=+a.wave||0; bv=+b.wave||0; }
       else if (key === "lead") { av=(a.lead||"").toLowerCase(); bv=(b.lead||"").toLowerCase(); }
@@ -512,52 +550,87 @@
     return list;
   }
 
+  const courseTitle = (c) => c.name.includes(":") ? c.name.slice(c.name.indexOf(":")+1).trim() : c.name;
+
+  const BUILD_COLS = [
+    { key: null, label: "", cls: "nosort", style: "width:28px" },
+    { key: "name", label: "Course" }, { key: "type", label: "Type" }, { key: "lead", label: "Lead" },
+    { key: "progress", label: "Progress" }, { key: "stage", label: "Current Stage" },
+    { key: "wave", label: "Sprint" }, { key: "due", label: "Stage Due" },
+  ];
+  const VIDEO_COLS = [
+    { key: "name", label: "Course" }, { key: "wave", label: "Sprint" },
+    { key: "video", label: "Video Status" }, { key: null, label: "Video Scripts", cls: "nosort" },
+  ];
+  function renderThead() {
+    const cols = state.category === "video" ? VIDEO_COLS : BUILD_COLS;
+    document.getElementById("thead").innerHTML = "<tr>" + cols.map(col => {
+      if (!col.key) return `<th class="${col.cls||"nosort"}"${col.style?` style="${col.style}"`:""}>${col.label}</th>`;
+      const on = col.key === state.sort;
+      return `<th data-sort="${col.key}" class="${on?"sorted":""}">${col.label} <span class="arrow">${state.dir===1?"↑":"↓"}</span></th>`;
+    }).join("") + "</tr>";
+  }
+
   function render() {
     renderFunnel();
+    renderThead();
     const list = filtered();
     const tbody = document.getElementById("rows");
     tbody.innerHTML = "";
-    list.forEach(c => {
-      const cs = currentStage(c);
-      const overdue = isOverdue(c);
-      const live = isComplete(c);
-      const tr = document.createElement("tr");
-      tr.className = "course-row";
-      const dueHTML = live
-        ? `<span class="due none">—</span>`
-        : c.due
-          ? `<span class="due ${overdue?"overdue":""}">${fmtDate(c.due)}${overdue?'<span class="flag">Overdue</span>':''}</span>`
-          : `<span class="due none">Not set</span>`;
-      const unassigned = c.lead === "Unassigned";
-      tr.innerHTML = `
-        <td><svg class="chev" width="12" height="12" viewBox="0 0 12 12"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></td>
-        <td><div class="cname">${(c.name.includes(":")? c.name.slice(c.name.indexOf(":")+1).trim() : c.name)}</div><div class="code">${c.code}</div></td>
-        <td><span class="type-tag">${c.type}</span></td>
-        <td><div class="assignee"><span class="avatar ${unassigned?"unassigned":""}" style="${unassigned?"":`background:${avatarColor(c.lead)}`}">${unassigned?"—":initials(c.lead)}</span><span class="nm">${c.lead}</span></div></td>
-        <td>${trackerHTML(c)}</td>
-        <td><span class="pill ph-${cs.group}"><span class="pdot"></span>${cs.name}</span></td>
-        <td style="font-variant-numeric:tabular-nums">${c.wave}</td>
-        <td>${dueHTML}</td>`;
-      const detail = document.createElement("tr");
-      detail.className = "detail-row";
-      detail.innerHTML = `<td colspan="8"><div class="detail-inner"><div class="steps">${stepsHTML(c)}</div></div></td>`;
-      tr.addEventListener("click", () => {
-        const open = detail.classList.toggle("open");
-        tr.classList.toggle("expanded", open);
+
+    if (state.category === "video") {
+      list.forEach(c => {
+        const ready = videoReady(c);
+        const tr = document.createElement("tr");
+        tr.className = "course-row static";
+        const folder = c.videoFolder
+          ? `<a class="folder-link" href="${c.videoFolder}" target="_blank" rel="noopener">Open folder ↗</a>`
+          : `<span class="due none">No folder linked</span>`;
+        tr.innerHTML = `
+          <td><div class="cname">${courseTitle(c)}</div><div class="code">${c.code}</div></td>
+          <td style="font-variant-numeric:tabular-nums">${c.wave}</td>
+          <td><span class="pill ph-${ready?"live":"plan"}"><span class="pdot"></span>${ready?"Ready":"Not ready"}</span></td>
+          <td>${folder}</td>`;
+        tbody.appendChild(tr);
       });
-      tbody.appendChild(tr);
-      tbody.appendChild(detail);
-    });
+    } else {
+      list.forEach(c => {
+        const cs = currentStage(c);
+        const overdue = isOverdue(c);
+        const live = isComplete(c);
+        const tr = document.createElement("tr");
+        tr.className = "course-row";
+        const dueHTML = live
+          ? `<span class="due none">—</span>`
+          : c.due
+            ? `<span class="due ${overdue?"overdue":""}">${fmtDate(c.due)}${overdue?'<span class="flag">Overdue</span>':''}</span>`
+            : `<span class="due none">Not set</span>`;
+        const unassigned = c.lead === "Unassigned";
+        tr.innerHTML = `
+          <td><svg class="chev" width="12" height="12" viewBox="0 0 12 12"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></td>
+          <td><div class="cname">${courseTitle(c)}</div><div class="code">${c.code}</div></td>
+          <td><span class="type-tag">${c.type}</span></td>
+          <td><div class="assignee"><span class="avatar ${unassigned?"unassigned":""}" style="${unassigned?"":`background:${avatarColor(c.lead)}`}">${unassigned?"—":initials(c.lead)}</span><span class="nm">${c.lead}</span></div></td>
+          <td>${trackerHTML(c)}</td>
+          <td><span class="pill ph-${cs.group}"><span class="pdot"></span>${cs.name}</span></td>
+          <td style="font-variant-numeric:tabular-nums">${c.wave}</td>
+          <td>${dueHTML}</td>`;
+        const detail = document.createElement("tr");
+        detail.className = "detail-row";
+        detail.innerHTML = `<td colspan="8"><div class="detail-inner"><div class="steps">${stepsHTML(c)}</div></div></td>`;
+        tr.addEventListener("click", () => {
+          const open = detail.classList.toggle("open");
+          tr.classList.toggle("expanded", open);
+        });
+        tbody.appendChild(tr);
+        tbody.appendChild(detail);
+      });
+    }
     document.getElementById("empty").style.display = list.length ? "none" : "block";
     const noun = state.category === "sp" ? "items" : "courses";
     document.getElementById("countNote").textContent =
       `Showing ${list.length} of ${activeList().length} ${noun}` +
       (state.stage||state.type||state.assignee||state.wave||state.q ? " · filtered" : "");
-    document.querySelectorAll("thead th[data-sort]").forEach(th => {
-      const on = th.dataset.sort === state.sort;
-      th.classList.toggle("sorted", on);
-      th.querySelector(".arrow").textContent = state.dir === 1 ? "↑" : "↓";
-    });
   }
 
   document.getElementById("q").addEventListener("input", e => { state.q = e.target.value; render(); });
@@ -570,29 +643,38 @@
     document.getElementById("q").value=""; stageSel.value=""; typeSel.value=""; asgSel.value=""; waveSel.value="";
     render();
   });
-  document.querySelectorAll("thead th[data-sort]").forEach(th => th.addEventListener("click", () => {
+  // Sort via delegation, since the header row is rebuilt on every render.
+  document.getElementById("thead").addEventListener("click", (e) => {
+    const th = e.target.closest("th[data-sort]");
+    if (!th) return;
     const k = th.dataset.sort;
-    if (state.sort === k) state.dir *= -1; else { state.sort = k; state.dir = (k==="progress")? -1 : 1; }
+    if (state.sort === k) state.dir *= -1; else { state.sort = k; state.dir = (k === "progress" || k === "video") ? -1 : 1; }
     render();
-  }));
+  });
 
-  // Category tabs: Course Builds vs Standards & Practices.
-  document.getElementById("tab-n-build").textContent = BY_CAT.build.length;
-  document.getElementById("tab-n-sp").textContent = BY_CAT.sp.length;
+  const FUNNEL_TITLES = {
+    pathways: "Pathways courses by current stage — click to filter",
+    pillars:  "Pillars courses by current stage — click to filter",
+    sp:       "Standards & Practices by status — click to filter",
+    video:    "Pillars courses by video readiness — click to filter",
+  };
+
+  // Category tabs.
+  ["pathways","pillars","sp","video"].forEach(cat =>
+    document.getElementById("tab-n-" + cat).textContent = BY_CAT[cat].length);
   document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
     if (state.category === t.dataset.cat) return;
     state.category = t.dataset.cat;
     document.querySelectorAll(".tab").forEach(x => x.classList.toggle("active", x.dataset.cat === state.category));
-    Object.assign(state, { q:"", stage:"", type:"", assignee:"", wave:"", sort:"progress", dir:-1 });
+    Object.assign(state, { q:"", stage:"", type:"", assignee:"", wave:"" }, defaultSort(state.category));
     document.getElementById("q").value = "";
-    document.getElementById("funnelTitle").textContent = state.category === "sp"
-      ? "Standards & Practices by status — click to filter"
-      : "Courses by current stage — click to filter";
+    document.getElementById("funnelTitle").textContent = FUNNEL_TITLES[state.category];
     buildFilters();
     renderKPIs();
     render();
   }));
 
+  document.getElementById("funnelTitle").textContent = FUNNEL_TITLES[state.category];
   buildFilters();
   renderKPIs();
   render();

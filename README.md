@@ -18,8 +18,18 @@ GitHub push / scheduled hook ─▶ Netlify build ─▶ generate_dashboard.py
 |---|---|
 | `generate_dashboard.py` | Fetches Asana, computes each course's stage, writes the HTML. Standard library only — no `pip install`. |
 | `template.html` | The dashboard design. Edit styling/columns here. |
+| `video_folders.json` | Maps each Pillars course code → its "Video Scripts" Drive folder (used by the Video Content tab). Add new Pillars courses here. |
 | `netlify.toml` | Build command + publish dir for Netlify. |
 | `.github/workflows/refresh.yml` | Scheduled job that triggers a Netlify rebuild (auto-refresh). |
+
+## Tabs (categories)
+Courses are split by their Asana **Classification**:
+- **Pathways Build** — `Pathways`. 8-task pipeline (Course Plan → Shell Setup → Act I–IV → Peer Review → Baselining).
+- **Pillars Build** — `Pillars`. Same but **no Act IV** (7 tasks).
+- **Standards & Practices** — `S & P`. Two-task path: Not started → Baselining → Complete.
+- **Video Content** — a view over Pillars courses: **Ready** once **Act III** is complete (else **Not ready**), with a link to the course's Video Scripts folder from `video_folders.json`.
+
+To add a new Pillars course's video folder: find its "Video Scripts" folder in Drive, copy the folder URL, and add `"CODE": "https://drive.google.com/drive/folders/…"` to `video_folders.json` (CODE is the part before the `:` in the Asana task name, e.g. `MATHS I`).
 
 ## One-time setup
 
