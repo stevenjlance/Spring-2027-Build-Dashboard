@@ -113,6 +113,32 @@ def cf(task, gid_or_name):
     return None
 
 
+def lead_for(by_stage, cur_task, sample):
+    """The Instructional Designer = whoever owns the build.
+
+    The Peer Review task is assigned to the peer reviewer (a different person), so
+    it must never decide the ID. Prefer the Course Plan owner; otherwise take the
+    most common assignee across the remaining (non-Peer-Review) tasks.
+    """
+    def nm(task):
+        a = (task or {}).get("assignee")
+        return a.get("name") if isinstance(a, dict) and a else None
+
+    cp = nm(by_stage.get("Course Plan"))
+    if cp:
+        return cp
+    counts = {}
+    for stage, it in by_stage.items():
+        if stage == "Peer Review":
+            continue
+        who = nm(it)
+        if who:
+            counts[who] = counts.get(who, 0) + 1
+    if counts:
+        return max(counts, key=counts.get)
+    return nm(cur_task) or nm(sample)
+
+
 def build_courses(tasks):
     groups = {}
     for t in tasks:
@@ -145,7 +171,8 @@ def build_courses(tasks):
         cur_name = next((s for s in pipeline_names
                          if not by_stage.get(s, {}).get("completed")), None)
         cur_task = by_stage.get(cur_name) if cur_name else None
-        lead = (cur_task or {}).get("assignee") or sample.get("assignee") or {}
+        # Instructional Designer — owns the build, never the peer reviewer.
+        lead = lead_for(by_stage, cur_task, sample)
         code = name.split(":")[0].strip() if ":" in name else name
 
         course = {
@@ -155,7 +182,7 @@ def build_courses(tasks):
             "type": "—" if kind == "sp" else (cf(sample, CF_TYPE) or cf(sample, "Course Type") or "—"),
             "classification": cls,
             "wave": cf(sample, CF_WAVE) or cf(sample, "Sprint") or cf(sample, "Wave") or "—",
-            "lead": (lead.get("name") if isinstance(lead, dict) else None) or "Unassigned",
+            "lead": lead or "Unassigned",
             "stages": stages_done,
             "due": (cur_task or {}).get("due_on"),
         }
