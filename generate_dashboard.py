@@ -61,6 +61,12 @@ PILLARS_PIPELINE_NAMES = [s for s in PILLARS_STAGE_NAMES if s != SHELL_STAGE]
 SP_CLASSIFICATION = "S & P"
 SP_STAGE_NAMES = ["Standards & Practices", "Baselining"]
 
+# Course Revisions are Pathways-program courses being refreshed: a two-task path.
+# NOTE: "Couse Refresh" is the literal (misspelled) Asana stage name.
+REVISION_CLASSIFICATION = "Course Revisions"
+REVISION_REFRESH_STAGE = "Couse Refresh"
+REVISION_STAGE_NAMES = [REVISION_REFRESH_STAGE, "Baselining"]
+
 # Maps a Pillars course code to its "Video Scripts" Drive folder (see video_folders.json).
 def load_video_folders():
     here = os.path.dirname(os.path.abspath(__file__))
@@ -149,21 +155,36 @@ def build_courses(tasks):
 
     video_folders = load_video_folders()
     # Stage + gating lists per kind.
-    STAGE_LISTS = {"pathways": STAGE_NAMES, "pillars": PILLARS_STAGE_NAMES, "sp": SP_STAGE_NAMES}
-    PIPE_LISTS = {"pathways": PIPELINE_NAMES, "pillars": PILLARS_PIPELINE_NAMES, "sp": SP_STAGE_NAMES}
-    KIND_ORDER = {"pathways": 0, "pillars": 1, "sp": 2}
+    STAGE_LISTS = {"pathways": STAGE_NAMES, "pillars": PILLARS_STAGE_NAMES,
+                   "sp": SP_STAGE_NAMES, "revision": REVISION_STAGE_NAMES}
+    PIPE_LISTS = {"pathways": PIPELINE_NAMES, "pillars": PILLARS_PIPELINE_NAMES,
+                  "sp": SP_STAGE_NAMES, "revision": REVISION_STAGE_NAMES}
+    KIND_ORDER = {"pathways": 0, "pillars": 1, "revision": 2, "sp": 3}
 
     courses = []
     for name, items in groups.items():
         sample = items[0]
-        cls = (cf(sample, CF_CLASS) or cf(sample, "Classification") or "").strip()
-        kind = "sp" if cls == SP_CLASSIFICATION else "pillars" if cls == "Pillars" else "pathways"
-        stage_names = STAGE_LISTS[kind]
-        pipeline_names = PIPE_LISTS[kind]  # gating tasks (Shell Setup excluded for builds)
-
         by_stage = {}
+        classes = set()
         for it in items:
             by_stage[cf(it, CF_STAGE) or cf(it, "Stage")] = it
+            c = (cf(it, CF_CLASS) or cf(it, "Classification") or "").strip()
+            if c:
+                classes.add(c)
+
+        # Detect kind from the whole group — one course's tasks can carry inconsistent
+        # classifications — keyed off the stages only that kind uses.
+        if SP_CLASSIFICATION in classes or "Standards & Practices" in by_stage:
+            kind = "sp"
+        elif REVISION_CLASSIFICATION in classes or REVISION_REFRESH_STAGE in by_stage:
+            kind = "revision"
+        elif "Pillars" in classes:
+            kind = "pillars"
+        else:
+            kind = "pathways"
+        cls = next(iter(classes), "")
+        stage_names = STAGE_LISTS[kind]
+        pipeline_names = PIPE_LISTS[kind]  # gating tasks (Shell Setup excluded for builds)
 
         # Completion for every task in this kind's list (drives checklist + progress).
         stages_done = [bool(by_stage.get(s, {}).get("completed")) for s in stage_names]
@@ -237,7 +258,8 @@ def main():
 
     n = lambda k: sum(1 for c in courses if c["kind"] == k)
     print(f"Wrote {out}")
-    print(f"{n('pathways')} Pathways · {n('pillars')} Pillars · {n('sp')} S&P · updated {generated_human}")
+    print(f"{n('pathways')} Pathways · {n('pillars')} Pillars · {n('revision')} Revisions · "
+          f"{n('sp')} S&P · updated {generated_human}")
 
 
 if __name__ == "__main__":
