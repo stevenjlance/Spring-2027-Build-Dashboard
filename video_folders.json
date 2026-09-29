@@ -1,14 +1,16 @@
 {
-  "_comment": "Maps a Pillars course code (the part before the ':' in the Asana task name) to its 'Video Scripts' Google Drive folder. Add new Pillars courses here as they appear.",
-  "MATHS I": "https://drive.google.com/drive/folders/1knvTE6gX3iSJX_QzgG1Uqt9anMRI1GNm",
-  "HISTY I": "https://drive.google.com/drive/folders/10UV85hSA2NLEzmaUviPg_xP2Ht7nOS1V",
-  "MATHS IV": "https://drive.google.com/drive/folders/1DeoxTe9e6YyLxLu9VO0QnUTIYyEsFR74",
-  "SPNSH II": "https://drive.google.com/drive/folders/10dUEsOrAdBv2dYTWL61C6N0fjgaL7RgE",
-  "HISTY II": "https://drive.google.com/drive/folders/19x-ZVakS7REk_ZQKSQo7gtBHtoWgbsTp",
-  "BUSNS XII": "https://drive.google.com/drive/folders/13zgl3eHbVXeIdP90iR4qNz9HWBkf9t3O",
-  "ENGLH XIII": "https://drive.google.com/drive/folders/1gk65SZ2PHZKkccv6Qsn5s19do7H622-J",
-  "HISTY VIII": "https://drive.google.com/drive/folders/1r3zyZD2Z5rhdK9U6DSyKPqFptw5mFu5P",
-  "BUSNS V": "https://drive.google.com/drive/folders/1ktWe-SDUcldT2XGSHABep0zn1o6sMdJ3",
-  "BUSNS X": "https://drive.google.com/drive/folders/1TbCGu-JcWfC6r2_iywwRbZVfe2XqWLoW",
-  "CRIMJ VII": "https://drive.google.com/drive/folders/1K2WlfMO-DoU_ukGS184ngiH7KMukDdf6"
+  "_comment": "Maps a Pillars course code (the part before the ':' in the Asana task name) to its Google Drive video folder, from the Spring 2027 production folder (1Vzj2wi-m54NdDHNp_TQ_Uvq16ZHphtR1). Add new Pillars courses here as they appear.",
+  "MATHS I": "https://drive.google.com/drive/folders/1qFXbtvpJ41x49KyIYrerkxBRz2O6-AG5",
+  "HISTY I": "https://drive.google.com/drive/folders/1RN9mzIDRBJMhZGfKfA5E_z0-2vp3BlEB",
+  "MATHS IV": "https://drive.google.com/drive/folders/1RLoFdaDIKFPzXDwAbJwMdZUnMJnukUin",
+  "HISTY II": "https://drive.google.com/drive/folders/1Ljq_FZaPP4PMqTEj8qUPqeWdRS5Dm2br",
+  "BUSNS XII": "https://drive.google.com/drive/folders/1XWP-9uNchXoNKMZF9gu2MCyvcF-nkHCT",
+  "ENGLH XIII": "https://drive.google.com/drive/folders/1wKV-R-v_MlwyFpKC1r7iv9WmdlpDtZ4Y",
+  "HISTY VIII": "https://drive.google.com/drive/folders/1jjcQ2CIg9b5E2GLFgatPGy1o3KAwUUgS",
+  "BUSNS V": "https://drive.google.com/drive/folders/1paWc-JKkp11uRKUc7jcQ_EBdMMBWHwEQ",
+  "BUSNS X": "https://drive.google.com/drive/folders/1HtcTgJxQBu82RIptflmec3-vb-GtpGca",
+  "CRIMJ VII": "https://drive.google.com/drive/folders/19dWdPANszds_tXFC9Vte_4FWrPPtN6Zx",
+  "ENGLH I": "https://drive.google.com/drive/folders/1oYiqZR08dVgehwq7XOoie6O1ZeL9Vp0_",
+  "_SPNSH_II_note": "SPNSH II has no folder in the new production folder yet; keeping its prior link. Replace when its folder is created.",
+  "SPNSH II": "https://drive.google.com/drive/folders/10dUEsOrAdBv2dYTWL61C6N0fjgaL7RgE"
 }
