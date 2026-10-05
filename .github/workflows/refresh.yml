@@ -13,7 +13,8 @@ on:
 
 jobs:
   trigger:
-    runs-on: ubuntu-latest
+    # Pinned (not ubuntu-latest) to avoid the ubuntu-latest → Ubuntu 26 migration churn.
+    runs-on: ubuntu-24.04
     steps:
       - name: Trigger Netlify build
         env:
