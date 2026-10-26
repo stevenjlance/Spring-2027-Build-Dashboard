@@ -61,11 +61,22 @@ PILLARS_PIPELINE_NAMES = [s for s in PILLARS_STAGE_NAMES if s != SHELL_STAGE]
 SP_CLASSIFICATION = "S & P"
 SP_STAGE_NAMES = ["Standards & Practices", "Baselining"]
 
-# Course Revisions are Pathways-program courses being refreshed: a two-task path.
-# NOTE: "Couse Refresh" is the literal (misspelled) Asana stage name.
-REVISION_CLASSIFICATION = "Course Revisions"
-REVISION_REFRESH_STAGE = "Couse Refresh"
-REVISION_STAGE_NAMES = [REVISION_REFRESH_STAGE, "Baselining"]
+# Revisions, QA, and Rebuilds all run a two-task path: Course Updates → Baselining.
+# "Couse Refresh" is an older (misspelled) stage that means the same as "Course Updates".
+REVISION_CLASSIFICATIONS = {"Course Revisions", "Revision", "QA", "Rebuild"}
+REVISION_STAGE_NAMES = ["Course Updates", "Baselining"]
+
+# Course Setup: two items per person ("CM Updates", "Problem Set Conversions"), each a
+# two-task path Convert Items → Baselining. Grouped per person (item names repeat).
+COURSESETUP_CLASSIFICATION = "Course Setup"
+COURSESETUP_STAGE_NAMES = ["Convert Items", "Baselining"]
+
+# Lab Setup: a single task per lab course, with no Stage — just done / not done.
+LABSETUP_CLASSIFICATION = "Lab Setup"
+LABSETUP_STAGE_NAMES = ["Lab Setup"]
+
+# Some stage positions accept more than one Asana stage name.
+STAGE_ALIASES = {"Course Updates": ["Course Updates", "Couse Refresh"]}
 
 # Maps a Pillars course code to its "Video Scripts" Drive folder (see video_folders.json).
 def load_video_folders():
@@ -145,38 +156,63 @@ def lead_for(by_stage, cur_task, sample):
     return nm(cur_task) or nm(sample)
 
 
+def stage_task(by_stage, stage_name):
+    """Task for a stage position, honoring aliases (e.g. the old 'Couse Refresh')."""
+    for n in STAGE_ALIASES.get(stage_name, [stage_name]):
+        if n in by_stage:
+            return by_stage[n]
+    return None
+
+
+def group_key(t):
+    cls = (cf(t, CF_CLASS) or cf(t, "Classification") or "").strip()
+    if cls == COURSESETUP_CLASSIFICATION:
+        who = (t.get("assignee") or {}).get("name") or "?"
+        return (t["name"], who)            # Course Setup item names repeat per person
+    return (t["name"],)
+
+
 def build_courses(tasks):
     groups = {}
     for t in tasks:
         stage = cf(t, CF_STAGE) or cf(t, "Stage")
-        if not stage:                      # skip committee / non-course items
-            continue
-        groups.setdefault(t["name"], []).append(t)
+        cls = (cf(t, CF_CLASS) or cf(t, "Classification") or "").strip()
+        if not stage and cls != LABSETUP_CLASSIFICATION:
+            continue                       # skip committee / placeholder (Lab Setup has no stage)
+        groups.setdefault(group_key(t), []).append(t)
 
     video_folders = load_video_folders()
-    # Stage + gating lists per kind.
     STAGE_LISTS = {"pathways": STAGE_NAMES, "pillars": PILLARS_STAGE_NAMES,
-                   "sp": SP_STAGE_NAMES, "revision": REVISION_STAGE_NAMES}
+                   "sp": SP_STAGE_NAMES, "revision": REVISION_STAGE_NAMES,
+                   "coursesetup": COURSESETUP_STAGE_NAMES, "labsetup": LABSETUP_STAGE_NAMES}
     PIPE_LISTS = {"pathways": PIPELINE_NAMES, "pillars": PILLARS_PIPELINE_NAMES,
-                  "sp": SP_STAGE_NAMES, "revision": REVISION_STAGE_NAMES}
-    KIND_ORDER = {"pathways": 0, "pillars": 1, "revision": 2, "sp": 3}
+                  "sp": SP_STAGE_NAMES, "revision": REVISION_STAGE_NAMES,
+                  "coursesetup": COURSESETUP_STAGE_NAMES, "labsetup": LABSETUP_STAGE_NAMES}
+    KIND_ORDER = {"pathways": 0, "pillars": 1, "revision": 2,
+                  "coursesetup": 3, "labsetup": 4, "sp": 5}
 
     courses = []
-    for name, items in groups.items():
+    for items in groups.values():
         sample = items[0]
+        name = sample["name"]
         by_stage = {}
         classes = set()
         for it in items:
-            by_stage[cf(it, CF_STAGE) or cf(it, "Stage")] = it
+            st = cf(it, CF_STAGE) or cf(it, "Stage")
+            if st:
+                by_stage[st] = it
             c = (cf(it, CF_CLASS) or cf(it, "Classification") or "").strip()
             if c:
                 classes.add(c)
 
-        # Detect kind from the whole group — one course's tasks can carry inconsistent
-        # classifications — keyed off the stages only that kind uses.
-        if SP_CLASSIFICATION in classes or "Standards & Practices" in by_stage:
+        # Detect kind from the whole group (tasks can carry inconsistent classifications).
+        if LABSETUP_CLASSIFICATION in classes:
+            kind = "labsetup"
+        elif COURSESETUP_CLASSIFICATION in classes or "Convert Items" in by_stage:
+            kind = "coursesetup"
+        elif SP_CLASSIFICATION in classes or "Standards & Practices" in by_stage:
             kind = "sp"
-        elif REVISION_CLASSIFICATION in classes or REVISION_REFRESH_STAGE in by_stage:
+        elif (classes & REVISION_CLASSIFICATIONS) or "Course Updates" in by_stage or "Couse Refresh" in by_stage:
             kind = "revision"
         elif "Pillars" in classes:
             kind = "pillars"
@@ -184,23 +220,38 @@ def build_courses(tasks):
             kind = "pathways"
         cls = next(iter(classes), "")
         stage_names = STAGE_LISTS[kind]
-        pipeline_names = PIPE_LISTS[kind]  # gating tasks (Shell Setup excluded for builds)
+        pipeline_names = PIPE_LISTS[kind]
 
-        # Completion for every task in this kind's list (drives checklist + progress).
-        stages_done = [bool(by_stage.get(s, {}).get("completed")) for s in stage_names]
-        # Current stage/lead/due derive from the first unfinished gating task.
-        cur_name = next((s for s in pipeline_names
-                         if not by_stage.get(s, {}).get("completed")), None)
-        cur_task = by_stage.get(cur_name) if cur_name else None
-        # Instructional Designer — owns the build, never the peer reviewer.
+        if kind == "labsetup":
+            # One task, no Stage: complete iff any task in the group is complete.
+            done = any(it.get("completed") for it in items)
+            stages_done = [bool(done)]
+            cur_task = None if done else sample
+        else:
+            stages_done = [bool((stage_task(by_stage, s) or {}).get("completed")) for s in stage_names]
+            cur_name = next((s for s in pipeline_names
+                             if not (stage_task(by_stage, s) or {}).get("completed")), None)
+            cur_task = stage_task(by_stage, cur_name) if cur_name else None
+
         lead = lead_for(by_stage, cur_task, sample)
-        code = name.split(":")[0].strip() if ":" in name else name
+
+        if kind == "coursesetup":
+            code, type_label = "", "Course Setup"      # per-person item, not a course
+        elif kind == "labsetup":
+            code = name.split(":")[0].strip() if ":" in name else name
+            type_label = "Lab Setup"
+        elif kind == "sp":
+            code = name.split(":")[0].strip() if ":" in name else name
+            type_label = "—"
+        else:
+            code = name.split(":")[0].strip() if ":" in name else name
+            type_label = cf(sample, CF_TYPE) or cf(sample, "Course Type") or "—"
 
         course = {
             "name": name,
             "code": code,
             "kind": kind,
-            "type": "—" if kind == "sp" else (cf(sample, CF_TYPE) or cf(sample, "Course Type") or "—"),
+            "type": type_label,
             "classification": cls,
             "wave": cf(sample, CF_WAVE) or cf(sample, "Sprint") or cf(sample, "Wave") or "—",
             "lead": lead or "Unassigned",
@@ -259,7 +310,8 @@ def main():
     n = lambda k: sum(1 for c in courses if c["kind"] == k)
     print(f"Wrote {out}")
     print(f"{n('pathways')} Pathways · {n('pillars')} Pillars · {n('revision')} Revisions · "
-          f"{n('sp')} S&P · updated {generated_human}")
+          f"{n('coursesetup')} Course Setup · {n('labsetup')} Lab Setup · {n('sp')} S&P · "
+          f"updated {generated_human}")
 
 
 if __name__ == "__main__":

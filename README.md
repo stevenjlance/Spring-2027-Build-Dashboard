@@ -26,6 +26,8 @@ GitHub push / scheduled hook ─▶ Netlify build ─▶ generate_dashboard.py
 Courses are split by their Asana **Classification**:
 - **Pathways Build** — `Pathways`. 8-task pipeline (Course Plan → Shell Setup → Act I–IV → Peer Review → Baselining).
 - **Pillars Build** — `Pillars`. Same but **no Act IV** (7 tasks).
+- **Course Revisions** — `Revision`, `QA`, `Rebuild` (and legacy `Course Revisions`). Two-task path: Course Updates → Baselining → Complete. (The old `Couse Refresh` stage is treated as `Course Updates`.)
+- **Course Setup** — `Course Setup` + `Lab Setup`. Course Setup = two items per person (`CM Updates`, `Problem Set Conversions`), each Convert Items → Baselining; grouped per person. Lab Setup = one task per lab course (no stage), Not started → Complete.
 - **Standards & Practices** — `S & P`. Two-task path: Not started → Baselining → Complete.
 - **Video Content** — a view over Pillars courses: **Ready** once **Act III** is complete (else **Not ready**), with a link to the course's Video Scripts folder from `video_folders.json`.
 

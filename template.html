@@ -242,6 +242,7 @@
     <button class="tab active" data-cat="pathways" type="button">Pathways Build <span class="tab-n" id="tab-n-pathways"></span></button>
     <button class="tab" data-cat="pillars" type="button">Pillars Build <span class="tab-n" id="tab-n-pillars"></span></button>
     <button class="tab" data-cat="revision" type="button">Course Revisions <span class="tab-n" id="tab-n-revision"></span></button>
+    <button class="tab" data-cat="coursesetup" type="button">Course Setup <span class="tab-n" id="tab-n-coursesetup"></span></button>
     <button class="tab" data-cat="sp" type="button">Standards &amp; Practices <span class="tab-n" id="tab-n-sp"></span></button>
     <button class="tab" data-cat="video" type="button">Video Content <span class="tab-n" id="tab-n-video"></span></button>
   </div>
@@ -285,7 +286,7 @@
       <span><i style="background:var(--live)"></i>Live</span>
     </div>
     <p style="margin-top:12px"><b>How stage is read:</b> the current stage is the next unfinished stage. <b>Pathways</b> pipeline: Course Plan → Act I → Act II → Act III → Act IV → Peer Review → Baselining. <b>Pillars</b> builds are identical but have <b>no Act IV</b> (7 tasks). <b>Global Resource &amp; Shell Setup</b> counts toward progress but does <b>not</b> gate the stage.<br>
-    <b>Standards &amp; Practices</b> items run a two-task path: <b>Not started</b> → <b>Baselining</b> (once the S&amp;P task is done) → <b>Complete</b> (once baselined). <b>Course Revisions</b> (Pathways-program refreshes) run <b>Course Refresh</b> → <b>Baselining</b> → <b>Complete</b>. <b>Video Content</b> lists each Pillars course as <b>Ready</b> once <b>Act III</b> is complete (else <b>Not ready</b>), with a link to its Video Scripts folder.<br>
+    <b>Standards &amp; Practices</b> items run a two-task path: <b>Not started</b> → <b>Baselining</b> (once the S&amp;P task is done) → <b>Complete</b> (once baselined). <b>Course Revisions</b> (Revision, QA, Rebuild) run <b>Course Updates</b> → <b>Baselining</b> → <b>Complete</b>. <b>Course Setup</b> holds each person's Course Setup items (<b>Convert Items</b> → <b>Baselining</b>) plus single-task <b>Lab Setup</b> tickets. <b>Video Content</b> lists each Pillars course as <b>Ready</b> once <b>Act III</b> is complete (else <b>Not ready</b>), with a link to its Video Scripts folder.<br>
     Pulled live from the <b>Spring 2027 Course Builds</b> Asana board. Curriculum-Committee items are excluded. Lead and Stage Due reflect the task for the current stage.</p>
   </footer>
 </div>
@@ -313,11 +314,20 @@
     { name: "Baselining",            short: "Baselining",            group: "review", gates: true },
   ];
 
-  // Course Revisions (Pathways-program refreshes) run a two-task path:
-  // Course Refresh → Baselining → Complete. (The Asana stage is misspelled "Couse Refresh".)
+  // Revisions, QA, and Rebuilds run a two-task path: Course Updates → Baselining → Complete.
   const REVISION_STAGES = [
-    { name: "Course Refresh", short: "Course Refresh", group: "prod",   gates: true },
+    { name: "Course Updates", short: "Course Updates", group: "prod",   gates: true },
     { name: "Baselining",     short: "Baselining",     group: "review", gates: true },
+  ];
+
+  // Course Setup items (per person): Convert Items → Baselining → Complete.
+  const COURSESETUP_STAGES = [
+    { name: "Convert Items", short: "Convert Items", group: "prod",   gates: true },
+    { name: "Baselining",    short: "Baselining",    group: "review", gates: true },
+  ];
+  // Lab Setup: a single task per lab course — Not started → Complete.
+  const LABSETUP_STAGES = [
+    { name: "Lab Setup", short: "Lab Setup", group: "plan", gates: true },
   ];
 
   // Gating pipelines per build kind (Shell Setup excluded).
@@ -349,8 +359,12 @@
   const initials = (n) => n.split(" ").filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase();
 
   // Per-kind stage model.
-  const stagesOf = (c) => c.kind === "sp" ? SP_STAGES : c.kind === "revision" ? REVISION_STAGES
-                        : c.kind === "pillars" ? PILLARS_STAGES : STAGES;
+  const stagesOf = (c) =>
+      c.kind === "sp" ? SP_STAGES
+    : c.kind === "revision" ? REVISION_STAGES
+    : c.kind === "coursesetup" ? COURSESETUP_STAGES
+    : c.kind === "labsetup" ? LABSETUP_STAGES
+    : c.kind === "pillars" ? PILLARS_STAGES : STAGES;
   const pipelineOf = (c) => c.kind === "pillars" ? PIPELINES.pillars : PIPELINES.pathways;
   const pipeIdx = (c) => stagesOf(c).map((s, i) => (s.gates ? i : -1)).filter(i => i >= 0);
   const pipeStages = (c) => pipeIdx(c).map(i => stagesOf(c)[i]);
@@ -371,7 +385,16 @@
     if (c.kind === "revision") {
       if (i >= 2) return { name: "Complete",       short: "Complete",       group: "live" };
       if (i === 1) return { name: "Baselining",     short: "Baselining",     group: "review" };
-      return               { name: "Course Refresh", short: "Course Refresh", group: "prod" };
+      return               { name: "Course Updates", short: "Course Updates", group: "prod" };
+    }
+    if (c.kind === "coursesetup") {
+      if (i >= 2) return { name: "Complete",      short: "Complete",      group: "live" };
+      if (i === 1) return { name: "Baselining",    short: "Baselining",    group: "review" };
+      return               { name: "Convert Items", short: "Convert Items", group: "prod" };
+    }
+    if (c.kind === "labsetup") {
+      return i >= 1 ? { name: "Complete", short: "Complete", group: "live" }
+                    : { name: "Not started", short: "Not started", group: "plan" };
     }
     const pipe = pipelineOf(c);
     return i >= pipe.length ? LIVE : pipe[i];
@@ -397,9 +420,15 @@
       { label: "Complete",    name: "Complete",    group: "live" },
     ];
     if (cat === "revision") return [
-      { label: "Course Refresh", name: "Course Refresh", group: "prod" },
+      { label: "Course Updates", name: "Course Updates", group: "prod" },
       { label: "Baselining",     name: "Baselining",     group: "review" },
       { label: "Complete",       name: "Complete",       group: "live" },
+    ];
+    if (cat === "coursesetup") return [
+      { label: "Not started",   name: "Not started",   group: "plan" },
+      { label: "Convert Items", name: "Convert Items", group: "prod" },
+      { label: "Baselining",    name: "Baselining",    group: "review" },
+      { label: "Complete",      name: "Complete",      group: "live" },
     ];
     const pipe = PIPELINES[cat] || PIPELINES.pathways;
     return [...pipe.map(s => ({ label: s.short, name: s.name, group: s.group })),
@@ -421,6 +450,7 @@
     pathways: COURSES.filter(c => c.kind === "pathways"),
     pillars:  COURSES.filter(c => c.kind === "pillars"),
     revision: COURSES.filter(c => c.kind === "revision"),
+    coursesetup: COURSES.filter(c => c.kind === "coursesetup" || c.kind === "labsetup"),
     sp:       COURSES.filter(c => c.kind === "sp"),
     video:    COURSES.filter(c => c.kind === "pillars"),  // same data, video-readiness view
   };
@@ -475,12 +505,21 @@
     } else if (state.category === "revision") {
       const complete = list.filter(isComplete).length;
       const baselining = list.filter(c => curIndex(c) === 1).length;
-      const refresh = list.filter(c => curIndex(c) === 0).length;
+      const updates = list.filter(c => curIndex(c) === 0).length;
       kpis = [
-        { label: "Course revisions", val: list.length, sub: "Pathways refreshes" },
-        { label: "Complete", val: complete, sub: "refreshed & baselined", cls: "is-live" },
-        { label: "Baselining", val: baselining, sub: "refresh done, baselining left", cls: "is-review" },
-        { label: "In refresh", val: refresh, sub: "course refresh not done" },
+        { label: "Revisions", val: list.length, sub: "Revision / QA / Rebuild" },
+        { label: "Complete", val: complete, sub: "updated & baselined", cls: "is-live" },
+        { label: "Baselining", val: baselining, sub: "updates done, baselining left", cls: "is-review" },
+        { label: "In updates", val: updates, sub: "course updates not done" },
+      ];
+    } else if (state.category === "coursesetup") {
+      const complete = list.filter(isComplete).length;
+      const notStarted = list.filter(c => currentStage(c).name === "Not started").length;
+      kpis = [
+        { label: "Setup items", val: list.length, sub: "Course Setup + Lab Setup" },
+        { label: "Complete", val: complete, sub: "all tasks done", cls: "is-live" },
+        { label: "In progress", val: list.length - complete - notStarted, sub: "underway, not done", cls: "is-review" },
+        { label: "Not started", val: notStarted, sub: "lab setup not begun" },
       ];
     } else {
       const pn = (PIPELINES[state.category] || PIPELINES.pathways).length;
@@ -658,7 +697,7 @@
       });
     }
     document.getElementById("empty").style.display = list.length ? "none" : "block";
-    const noun = state.category === "sp" ? "items" : "courses";
+    const noun = (state.category === "sp" || state.category === "coursesetup") ? "items" : "courses";
     document.getElementById("countNote").textContent =
       `Showing ${list.length} of ${activeList().length} ${noun}` +
       (state.stage||state.type||state.assignee||state.wave||state.q ? " · filtered" : "");
@@ -686,13 +725,14 @@
   const FUNNEL_TITLES = {
     pathways: "Pathways courses by current stage — click to filter",
     pillars:  "Pillars courses by current stage — click to filter",
-    revision: "Course revisions by status — click to filter",
+    revision: "Revisions / QA / Rebuilds by status — click to filter",
+    coursesetup: "Course Setup & Lab Setup by status — click to filter",
     sp:       "Standards & Practices by status — click to filter",
     video:    "Pillars courses by video readiness — click to filter",
   };
 
   // Category tabs.
-  ["pathways","pillars","revision","sp","video"].forEach(cat =>
+  ["pathways","pillars","revision","coursesetup","sp","video"].forEach(cat =>
     document.getElementById("tab-n-" + cat).textContent = BY_CAT[cat].length);
   document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
     if (state.category === t.dataset.cat) return;
